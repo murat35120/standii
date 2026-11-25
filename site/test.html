@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление тестами</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0d1117; color: #c9d1d9; min-height: 100vh; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; background: #161b22; border-radius: 16px; padding: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+        header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px; border-bottom: 1px solid #30363d; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+        header h1 { font-size: 24px; font-weight: 600; color: #f0f6fc; }
+        .status { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #8b949e; }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; transition: background 0.3s; }
+        .status-dot.connected { background: #3fb950; box-shadow: 0 0 8px rgba(63,185,80,0.4); }
+        .status-dot.disconnected { background: #f85149; box-shadow: 0 0 8px rgba(248,81,73,0.4); }
+        
+        .panel { background: #0d1117; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+        .panel h2 { font-size: 16px; font-weight: 500; color: #f0f6fc; margin-bottom: 12px; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        
+        .btn { padding: 6px 14px; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.25s; }
+        .btn-primary { background: #1f6feb; color: #fff; }
+        .btn-primary:hover { background: #388bfd; }
+        .btn-success { background: #238636; color: #fff; }
+        .btn-success:hover { background: #2ea043; }
+        .btn-danger { background: #da3633; color: #fff; }
+        .btn-danger:hover { background: #f85149; }
+        .btn-warning { background: #d29922; color: #fff; }
+        .btn-warning:hover { background: #e3b341; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+        .btn-outline { background: transparent; border: 1px solid #30363d; color: #c9d1d9; }
+        .btn-outline:hover { background: #30363d; }
+        .btn-info { background: #1f6feb; color: #fff; }
+        .btn-info:hover { background: #388bfd; }
+        .btn-copy { background: #6f42c1; color: #fff; }
+        .btn-copy:hover { background: #8b5cf6; }
+        
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 500; color: #8b949e; margin-bottom: 4px; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px 12px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; color: #f0f6fc; font-size: 14px; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #58a6ff; }
+        .form-group textarea { resize: vertical; min-height: 60px; font-family: 'Consolas', monospace; }
+        .form-row { display: flex; flex-wrap: wrap; gap: 12px; }
+        .form-row .form-group { flex: 1; min-width: 150px; }
+        .form-row .form-group.small { flex: 0 0 auto; min-width: 80px; }
+        
+        .status-bar { padding: 10px 16px; border-radius: 8px; margin-bottom: 12px; }
+        .status-bar.info { background: #0d1f3c; color: #58a6ff; border: 1px solid #1f6feb; }
+        .status-bar.success { background: #0d1f1a; color: #3fb950; border: 1px solid #238636; }
+        .status-bar.error { background: #1f0d0d; color: #f85149; border: 1px solid #da3633; }
+        .status-bar.warning { background: #1f1f0d; color: #d29922; border: 1px solid #d29922; }
+        
+        .three-columns { display: flex; gap: 20px; }
+        .three-columns .left { flex: 0 0 250px; }
+        .three-columns .center { flex: 1; }
+        .three-columns .right { flex: 0 0 250px; }
+        
+        .test-list { max-height: 70vh; overflow-y: auto; }
+        .test-list .test-item { padding: 10px 14px; border-bottom: 1px solid #21262d; cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; }
+        .test-list .test-item:hover { background: #161b22; }
+        .test-list .test-item.active { background: #0d1f3c; border-left: 3px solid #58a6ff; }
+        .test-list .test-item .test-name { color: #f0f6fc; font-weight: 500; }
+        .test-list .test-item .test-badge { font-size: 12px; }
+        
+        .view-toggle { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+        .view-toggle button { padding: 4px 16px; border: 1px solid #30363d; background: transparent; color: #8b949e; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+        .view-toggle button.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+        .view-toggle button:hover:not(.active) { background: #21262d; }
+        
+        .command-item { 
+            background: #161b22; 
+            padding: 8px 12px; 
+            border-radius: 6px; 
+            margin-bottom: 4px; 
+            border-left: 3px solid #1f6feb; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            flex-wrap: wrap; 
+            gap: 6px; 
+        }
+        .command-item .command-info { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 4px 12px; 
+            font-size: 13px; 
+            align-items: center;
+        }
+        .command-item .command-info .time { 
+            color: #58a6ff; 
+            font-weight: 600; 
+        }
+        .command-item .command-info .cmd { 
+            color: #d29922; 
+            font-weight: 600; 
+        }
+        .command-item .command-info .data { 
+            color: #3fb950; 
+        }
+        .command-item .command-info .badge-end { 
+            font-size: 10px; 
+            padding: 0 8px; 
+            border-radius: 10px; 
+            background: #7a5d1f; 
+            color: #fff3cd; 
+        }
+        .command-item .command-actions { 
+            display: flex; 
+            gap: 4px; 
+        }
+        .command-item .command-actions button { 
+            background: none; 
+            border: none; 
+            cursor: pointer; 
+            font-size: 13px; 
+            padding: 0 4px; 
+        }
+        .command-item .command-actions .del-btn { 
+            color: #f85149; 
+        }
+        .command-item .command-actions .del-btn:hover { 
+            color: #ff7b72; 
+        }
+        
+        .inherited-item { 
+            color: #8b949e; 
+            font-size: 13px; 
+            padding: 6px 10px; 
+            background: #0d1117; 
+            border-radius: 4px; 
+            border: 1px solid #30363d; 
+            margin-bottom: 4px; 
+        }
+        .inherited-item .item-name { 
+            color: #58a6ff; 
+        }
+        .inherited-item .item-type { 
+            color: #d29922; 
+            font-size: 11px; 
+        }
+        .inherited-item .item-target { 
+            color: #8b949e; 
+            font-size: 12px; 
+        }
+        .inherited-item .item-params { 
+            color: #3fb950; 
+            font-size: 11px; 
+        }
+        
+        .command-select-row { 
+            display: flex; 
+            gap: 8px; 
+            align-items: flex-end; 
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .command-select-row .form-group { 
+            flex: 1; 
+            min-width: 100px; 
+            margin-bottom: 0; 
+        }
+        .command-select-row .form-group select,
+        .command-select-row .form-group input { 
+            padding: 6px 10px; 
+            font-size: 13px; 
+            width: 100%;
+        }
+        .command-select-row .form-group.small { 
+            flex: 0 0 auto; 
+            min-width: 80px; 
+        }
+        .command-select-row .btn { 
+            padding: 6px 14px; 
+            font-size: 13px; 
+            align-self: flex-end; 
+        }
+        .command-select-row .btn-end { 
+            background: #7a5d1f; 
+            color: #fff3cd; 
+            border-color: #7a5d1f;
+        }
+        .command-select-row .btn-end:hover { 
+            background: #a87d2a; 
+        }
+        
+        .commands-list-container { max-height: 250px; overflow-y: auto; }
+        
+        .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; }
+        .badge-ok { background: #1a7f37; color: #d4edda; }
+        .badge-no { background: #7a1f1f; color: #f8d7da; }
+        .badge-info { background: #1a3d7a; color: #d1ecf1; }
+        .badge-warning { background: #7a5d1f; color: #fff3cd; }
+        
+        .empty-message { color: #8b949e; text-align: center; padding: 20px 0; }
+        
+        .right-panel .btn { width: 100%; margin-bottom: 6px; }
+        .right-panel .btn:last-child { margin-bottom: 0; }
+        
+        .result-summary { 
+            display: flex; 
+            gap: 20px; 
+            flex-wrap: wrap; 
+            padding: 12px; 
+            background: #0d1117; 
+            border-radius: 8px; 
+            border: 1px solid #30363d; 
+            margin-bottom: 12px; 
+        }
+        .result-item { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+        .result-item .badge { padding: 2px 12px; border-radius: 12px; font-weight: 600; }
+        
+        .diff-details { 
+            padding: 8px 12px; 
+            background: #1f0d0d; 
+            border-radius: 6px; 
+            border-left: 3px solid #f85149; 
+            font-size: 13px; 
+            color: #f85149; 
+            margin-bottom: 12px;
+        }
+        .diff-details .diff-item { padding: 2px 0; }
+        
+        .log-preview { 
+            max-height: 200px; 
+            overflow-y: auto; 
+            background: #0d1117; 
+            border-radius: 6px; 
+            border: 1px solid #30363d; 
+            font-family: 'Consolas', monospace; 
+            font-size: 12px; 
+            padding: 4px; 
+        }
+        .log-preview .log-entry { 
+            padding: 2px 8px; 
+            border-bottom: 1px solid #21262d; 
+            display: flex; 
+            gap: 12px; 
+        }
+        .log-preview .log-entry .ltime { color: #58a6ff; }
+        .log-preview .log-entry .lname { color: #f0f6fc; }
+        .log-preview .log-entry .ldata { color: #8b949e; }
+        .log-preview .log-entry.error-time { background: rgba(248,81,73,0.1); }
+        .log-preview .log-entry.error-name { background: rgba(248,81,73,0.1); }
+        .log-preview .log-entry.error-time .ltime { color: #f85149; font-weight: bold; }
+        .log-preview .log-entry.error-name .lname { color: #f85149; font-weight: bold; }
+        
+        .inherited-section-title {
+            font-size: 12px;
+            color: #8b949e;
+            margin: 8px 0 4px 0;
+            font-weight: 500;
+        }
+        
+        .stop-on-error-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 12px;
+            padding: 8px 12px;
+            background: #0d1117;
+            border-radius: 6px;
+            border: 1px solid #30363d;
+        }
+        .stop-on-error-row input[type="checkbox"] {
+            accent-color: #da3633;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+        .stop-on-error-row label {
+            color: #f0f6fc;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .stop-on-error-row .hint {
+            color: #8b949e;
+            font-size: 12px;
+            margin-left: auto;
+        }
+        
+        .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn-row .btn { flex: 1; min-width: 100px; text-align: center; }
+        
+        @media (max-width: 1024px) {
+            .three-columns { flex-direction: column; }
+            .three-columns .left { flex: 1; }
+            .three-columns .right { flex: 1; }
+        }
+        @media (max-width: 768px) {
+            .three-columns { flex-direction: column; }
+            .three-columns .left { flex: 1; }
+            .three-columns .right { flex: 1; }
+            .form-row .form-group { min-width: 100%; }
+            .command-select-row { flex-wrap: wrap; }
+            .command-select-row .form-group { min-width: 100%; }
+            .command-select-row .form-group.small { flex: 1; min-width: 80px; }
+            .view-toggle { flex-wrap: wrap; }
+            .stop-on-error-row { flex-wrap: wrap; }
+            .stop-on-error-row .hint { margin-left: 0; }
+            .btn-row { flex-direction: column; }
+            .btn-row .btn { flex: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧪 Управление тестами</h1>
+            <div class="status">
+                <span class="status-dot disconnected" id="statusDot"></span>
+                <span id="statusText">Отключено</span>
+            </div>
+        </header>
+
+        <div id="statusBar" class="status-bar info">Загрузка данных...</div>
+
+        <div class="three-columns">
+            <div class="left">
+                <div class="panel">
+                    <div class="flex-between">
+                        <h2>📋 Тесты</h2>
+                        <div class="btn-row" style="flex:1;justify-content:flex-end;">
+                            <button class="btn btn-success btn-sm" onclick="createTest()" id="newTestBtn" disabled>➕ Новый</button>
+                            <button class="btn btn-copy btn-sm" onclick="copyTest()" id="copyTestBtn" disabled>📋 Копировать</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Выберите стенд</label>
+                        <select id="standSelect" onchange="onStandChange()">
+                            <option value="">-- Выберите стенд --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Выберите группу</label>
+                        <select id="groupSelect" onchange="onGroupChange()" disabled>
+                            <option value="">-- Сначала выберите стенд --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Выберите проверку</label>
+                        <select id="checkSelect" onchange="onCheckChange()" disabled>
+                            <option value="">-- Сначала выберите группу --</option>
+                        </select>
+                    </div>
+                    <div id="testList" class="test-list">
+                        <div class="empty-message">Выберите проверку</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="center">
+                <div class="panel">
+                    <div class="flex-between">
+                        <h2 id="editTitle">📝 Выберите тест для редактирования</h2>
+                    </div>
+                    <div id="editContent">
+                        <div class="empty-message">Выберите тест из списка слева</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="right">
+                <div class="panel right-panel">
+                    <h2>⚙️ Управление</h2>
+                    <button class="btn btn-success" onclick="saveTest()" id="saveBtn" disabled>💾 Сохранить</button>
+                    <button class="btn btn-danger" onclick="deleteCurrentTest()" id="deleteBtn" disabled>🗑️ Удалить тест</button>
+                    <button class="btn btn-warning" onclick="saveStandart()" id="saveStandartBtn" disabled>📝 Сохранить эталон</button>
+                    <button class="btn btn-warning" onclick="switchView('main')" id="mainViewBtn">📝 Основное</button>
+                    <button class="btn btn-primary" onclick="switchView('commands')" id="commandsViewBtn">⚡ Команды (<span id="commandCount">0</span>)</button>
+                    <button class="btn btn-info" onclick="switchView('result')" id="resultViewBtn">📊 Результат</button>
+                    <button class="btn btn-outline" onclick="loadTests()">🔄 Обновить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========================================================================
+        // 1. КОНСТАНТЫ И ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+        // ========================================================================
+        const WS_API_KEY = '1356_api';
+        let ws = null;
+        let isConnected = false;
+        let standsList = [];
+        let groupsList = [];
+        let checksList = [];
+        let currentStand = null;
+        let currentGroup = null;
+        let currentCheck = null;
+        let currentTest = null;
+        let testsList = [];
+        let aliasMap = {};
+        let currentView = 'main';
+        let isRendering = false;
+        let currentStandName = '';
+        let currentGroupName = '';
+        let currentCheckName = '';
+        let groupTriggers = [];
+        let checkInitialState = [];
+        let stopOnError = false;
+
+        // Сохраняем последние значения полей команд
+        let lastCommandTime = '1.0';
+        let lastCommandAlias = '';
+        let lastCommandData = '2';
+
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const statusBar = document.getElementById('statusBar');
+
+        // ========================================================================
+        // 2. WEB SOCKET
+        // ========================================================================
+        function showStatus(msg, type = 'info') {
+            statusBar.textContent = msg;
+            statusBar.className = 'status-bar ' + type;
+        }
+
+        function connectWebSocket() {
+            const host = window.location.hostname;
+            const wsUrl = `ws://${host}:9090`;
+            try {
+                ws = new WebSocket(wsUrl);
+                ws.onopen = function() {
+                    isConnected = true;
+                    statusDot.className = 'status-dot connected';
+                    statusText.textContent = 'Подключено';
+                    showStatus('Соединение установлено', 'success');
+                    loadStands();
+                };
+                ws.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        console.log('WS получено:', data);
+                        handleIncomingMessage(data);
+                    } catch (e) {
+                        console.error('Ошибка парсинга:', e);
+                    }
+                };
+                ws.onclose = function() {
+                    isConnected = false;
+                    statusDot.className = 'status-dot disconnected';
+                    statusText.textContent = 'Отключено';
+                    showStatus('Соединение потеряно', 'error');
+                    setTimeout(connectWebSocket, 3000);
+                };
+                ws.onerror = function(error) {
+                    console.error('WebSocket ошибка:', error);
+                };
+            } catch (e) {
+                console.error('Ошибка подключения:', e);
+                setTimeout(connectWebSocket, 3000);
+            }
+        }
+
+        function sendApiRequest(api, params = {}) {
+            if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) {
+                console.warn('WebSocket не подключен');
+                return false;
+            }
+            const message = { api_key: WS_API_KEY, api: api, ...params };
+            ws.send(JSON.stringify(message));
+            return true;
+        }
+
+        // ========================================================================
+        // 3. ОБРАБОТКА ВХОДЯЩИХ СООБЩЕНИЙ
+        // ========================================================================
+        function handleIncomingMessage(data) {
+            console.log('handleIncomingMessage:', data.api || 'unknown', data);
+            
+            if (data.stands) {
+                standsList = data.stands;
+                renderStandSelect();
+                return;
+            }
+
+            if (data.stand) {
+                currentStand = data.stand;
+                aliasMap = data.stand.alias || {};
+                groupsList = [];
+                if (data.stand.groups) {
+                    groupsList = data.stand.groups;
+                }
+                renderGroupSelect();
+                return;
+            }
+
+            if (data.group) {
+                currentGroup = data.group;
+                groupTriggers = data.group.triggers || [];
+                checksList = [];
+                if (data.group.checks_list) {
+                    checksList = data.group.checks_list;
+                }
+                renderCheckSelect();
+                return;
+            }
+
+            if (data.check) {
+                currentCheck = data.check;
+                checkInitialState = data.check.initial_state || [];
+                testsList = [];
+                if (data.check.tests_list) {
+                    testsList = data.check.tests_list;
+                }
+                renderTestList();
+                document.getElementById('newTestBtn').disabled = false;
+                document.getElementById('copyTestBtn').disabled = false;
+                return;
+            }
+
+            if (data.test) {
+                console.log('Получены данные теста:', data.test.name);
+                currentTest = data.test;
+                renderEditForm(data.test);
+                document.getElementById('saveBtn').disabled = false;
+                document.getElementById('deleteBtn').disabled = false;
+                document.getElementById('saveStandartBtn').disabled = false;
+                return;
+            }
+
+            if (data.api === 'test_save_data' || data.api === 'test_delete_data' || data.api === 'test_save_standart') {
+                if (data.ok) {
+                    showStatus(data.info || 'Операция выполнена', 'success');
+                    loadTests();
+                } else {
+                    showStatus('Ошибка: ' + (data.info || 'неизвестная'), 'error');
+                }
+                return;
+            }
+
+            if (data.api === 'copy_test') {
+                if (data.ok) {
+                    showStatus(data.info || 'Тест скопирован', 'success');
+                    loadTests();
+                } else {
+                    showStatus('Ошибка копирования: ' + (data.info || 'неизвестная'), 'error');
+                }
+                return;
+            }
+
+            if (data.info === 'wrong api' || data.info === 'wrong api_key') {
+                showStatus('Ошибка API: ' + data.info, 'error');
+                return;
+            }
+        }
+
+        // ========================================================================
+        // 4. ЗАГРУЗКА ДАННЫХ
+        // ========================================================================
+        function loadStands() {
+            sendApiRequest('stands_list', {});
+        }
+
+        function loadTests() {
+            const stand = document.getElementById('standSelect').value;
+            const group = document.getElementById('groupSelect').value;
+            const check = document.getElementById('checkSelect').value;
+            if (stand && group && check) {
+                currentStandName = stand;
+                currentGroupName = group;
+                currentCheckName = check;
+                sendApiRequest('check_get', {
+                    stand_name: stand,
+                    group_name: group,
+                    check_name: check
+                });
+            }
+        }
+
+        function loadTestData(standName, groupName, checkName, testName) {
+            console.log('loadTestData вызван:', { standName, groupName, checkName, testName });
+            if (standName && groupName && checkName && testName) {
+                currentStandName = standName;
+                currentGroupName = groupName;
+                currentCheckName = checkName;
+                sendApiRequest('test_get_data', {
+                    stand_name: standName,
+                    group_name: groupName,
+                    check_name: checkName,
+                    test_name: testName
+                });
+            }
+        }
+
+        // ========================================================================
+        // 5. РЕНДЕРИНГ
+        // ========================================================================
+        function renderStandSelect() {
+            const select = document.getElementById('standSelect');
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">-- Выберите стенд --</option>';
+            for (const s of standsList) {
+                const option = document.createElement('option');
+                option.value = s.path;
+                option.textContent = s.name;
+                if (s.path === currentValue) option.selected = true;
+                select.appendChild(option);
+            }
+            if (currentValue && select.value !== currentValue) {
+                if (standsList.length > 0) {
+                    select.value = standsList[0].path;
+                    onStandChange();
+                }
+            }
+        }
+
+        function renderGroupSelect() {
+            const select = document.getElementById('groupSelect');
+            select.innerHTML = '<option value="">-- Выберите группу --</option>';
+            if (currentStand && currentStand.groups) {
+                for (const g of currentStand.groups) {
+                    const option = document.createElement('option');
+                    option.value = g.path;
+                    option.textContent = g.name;
+                    select.appendChild(option);
+                }
+            }
+            select.disabled = false;
+            document.getElementById('checkSelect').innerHTML = '<option value="">-- Сначала выберите группу --</option>';
+            document.getElementById('checkSelect').disabled = true;
+            document.getElementById('testList').innerHTML = '<div class="empty-message">Выберите проверку</div>';
+            document.getElementById('newTestBtn').disabled = true;
+            document.getElementById('copyTestBtn').disabled = true;
+        }
+
+        function renderCheckSelect() {
+            const select = document.getElementById('checkSelect');
+            select.innerHTML = '<option value="">-- Выберите проверку --</option>';
+            if (currentGroup && currentGroup.checks_list) {
+                for (const c of currentGroup.checks_list) {
+                    const option = document.createElement('option');
+                    option.value = c.path;
+                    option.textContent = c.name;
+                    select.appendChild(option);
+                }
+            }
+            select.disabled = false;
+            document.getElementById('testList').innerHTML = '<div class="empty-message">Выберите проверку</div>';
+            document.getElementById('newTestBtn').disabled = true;
+            document.getElementById('copyTestBtn').disabled = true;
+        }
+
+        function renderTestList() {
+            const container = document.getElementById('testList');
+            if (!testsList || testsList.length === 0) {
+                container.innerHTML = '<div class="empty-message">Нет тестов</div>';
+                return;
+            }
+            let html = '';
+            const currentTestName = currentTest ? currentTest.name : '';
+            console.log('renderTestList, currentTestName:', currentTestName);
+            
+            for (const t of testsList) {
+                const isActive = (t.name === currentTestName);
+                const result = t.result || null;
+                let resultBadge = '';
+                if (result) {
+                    const ok = result.order === 'ok' && result.time === 'ok';
+                    resultBadge = `<span class="badge ${ok ? 'badge-ok' : 'badge-no'} test-badge">${ok ? '✅' : '❌'}</span>`;
+                }
+                html += `<div class="test-item${isActive ? ' active' : ''}" onclick="selectTest('${t.name}')">`;
+                html += `    <span class="test-name">${t.name} ${resultBadge}</span>`;
+                html += `    <span style="font-size:11px;color:#8b949e;">${t.commands || 0} команд</span>`;
+                html += '</div>';
+            }
+            container.innerHTML = html;
+        }
+
+        function switchView(view) {
+            currentView = view;
+            document.getElementById('mainViewBtn').className = 'btn' + (view === 'main' ? ' btn-warning' : ' btn-outline');
+            document.getElementById('commandsViewBtn').className = 'btn' + (view === 'commands' ? ' btn-primary' : ' btn-outline');
+            document.getElementById('resultViewBtn').className = 'btn' + (view === 'result' ? ' btn-info' : ' btn-outline');
+            if (currentTest) {
+                renderEditForm(currentTest);
+            }
+        }
+
+        function renderEditForm(test) {
+            console.log('renderEditForm вызван, test:', test ? test.name : 'null');
+            isRendering = true;
+            const container = document.getElementById('editContent');
+            const isNew = !test || !test.name;
+
+            if (!test) {
+                container.innerHTML = '<div class="empty-message">Выберите тест из списка слева</div>';
+                document.getElementById('editTitle').textContent = '📝 Выберите тест для редактирования';
+                isRendering = false;
+                return;
+            }
+
+            // Сохраняем данные в currentTest для сохранения с любой вкладки
+            if (currentView === 'main') {
+                const nameEl = document.getElementById('testName');
+                const descEl = document.getElementById('testDescription');
+                const diffEl = document.getElementById('testDifference');
+                const stopEl = document.getElementById('stopOnErrorCheckbox');
+                if (nameEl) currentTest.name = nameEl.value.trim();
+                if (descEl) currentTest.description = descEl.value.trim();
+                if (diffEl) currentTest.difference = parseInt(diffEl.value) || 100;
+                if (stopEl) currentTest.stopOnError = stopEl.checked;
+            }
+
+            const commands = test.commands || [];
+            const stopOnError = test.stopOnError || false;
+            document.getElementById('commandCount').textContent = commands.length;
+
+            let html = '';
+
+            // Вкладки
+            html += '<div class="view-toggle">';
+            html += '    <button class="btn ' + (currentView === 'main' ? 'btn-warning' : 'btn-outline') + '" onclick="switchView(\'main\')">📝 Основное</button>';
+            html += '    <button class="btn ' + (currentView === 'commands' ? 'btn-primary' : 'btn-outline') + '" onclick="switchView(\'commands\')">⚡ Команды (' + commands.length + ')</button>';
+            html += '    <button class="btn ' + (currentView === 'result' ? 'btn-info' : 'btn-outline') + '" onclick="switchView(\'result\')">📊 Результат</button>';
+            html += '</div>';
+
+            if (currentView === 'main') {
+                // Основная информация
+                html += '<div class="form-group">';
+                html += '    <label>Название теста *</label>';
+                html += '    <input type="text" id="testName" value="' + (test.name || '') + '" placeholder="Введите название">';
+                html += '</div>';
+                html += '<div class="form-group">';
+                html += '    <label>Описание</label>';
+                html += '    <textarea id="testDescription" rows="2" placeholder="Описание теста">' + (test.description || '') + '</textarea>';
+                html += '</div>';
+                html += '<div class="form-group">';
+                html += '    <label>Допустимая погрешность (мс)</label>';
+                html += '    <input type="number" id="testDifference" value="' + (test.difference || 100) + '" placeholder="100">';
+                html += '</div>';
+
+                // Чекбокс "Остановить при ошибке"
+                html += '<div class="stop-on-error-row">';
+                html += '    <input type="checkbox" id="stopOnErrorCheckbox" ' + (stopOnError ? 'checked' : '') + '>';
+                html += '    <label for="stopOnErrorCheckbox">⏹️ Остановить выполнение группы/проверки при ошибке в этом тесте</label>';
+                html += '    <span class="hint">Если тест завершится с ❌, следующие тесты не запустятся</span>';
+                html += '</div>';
+
+                // Наследуемые алиасы (только для просмотра)
+                html += '<div class="form-group">';
+                html += '    <label>Наследуемые алиасы <span style="color:#8b949e;font-weight:400;font-size:12px;">— только для просмотра</span></label>';
+                html += '    <div style="max-height:200px;overflow-y:auto;padding:4px;background:#0d1117;border-radius:6px;border:1px solid #30363d;">';
+                
+                // 1. Триггеры из группы
+                html += '<div class="inherited-section-title">🔔 Триггеры из группы:</div>';
+                if (!groupTriggers || groupTriggers.length === 0) {
+                    html += '<div style="color:#8b949e;font-size:12px;padding:4px 8px;">Нет триггеров</div>';
+                } else {
+                    for (const tr of groupTriggers) {
+                        const aliasInfo = aliasMap[tr.type] || {};
+                        const target = aliasInfo.trigger || tr.type;
+                        let paramsStr = '';
+                        if (tr.sost !== undefined) paramsStr += `sost:${tr.sost} `;
+                        if (tr.min !== undefined) paramsStr += `min:${tr.min} `;
+                        if (tr.max !== undefined) paramsStr += `max:${tr.max} `;
+                        if (tr.dev !== undefined) paramsStr += `dev:${tr.dev}`;
+                        html += `<div class="inherited-item">
+                            <span class="item-name">${tr.type}</span>
+                            <span class="item-type">🔔 триггер</span>
+                            <span class="item-target">→ ${target}</span>
+                            ${paramsStr ? `<span class="item-params">${paramsStr.trim()}</span>` : ''}
+                            ${tr.controller ? `<span style="color:#8b949e;font-size:11px;">контроллер: ${tr.controller}</span>` : ''}
+                        </div>`;
+                    }
+                }
+                
+                // 2. Команды исходного состояния из проверки
+                html += '<div class="inherited-section-title" style="margin-top:12px;">⚡ Команды исходного состояния (из проверки):</div>';
+                if (!checkInitialState || checkInitialState.length === 0) {
+                    html += '<div style="color:#8b949e;font-size:12px;padding:4px 8px;">Нет команд</div>';
+                } else {
+                    for (const cmd of checkInitialState) {
+                        const aliasInfo = aliasMap[cmd.command] || {};
+                        const target = aliasInfo.command || cmd.command;
+                        const data = cmd.data !== undefined ? cmd.data : 2;
+                        html += `<div class="inherited-item">
+                            <span class="item-name">${cmd.command}</span>
+                            <span class="item-type">⚡ команда</span>
+                            <span class="item-target">→ ${target}</span>
+                            <span class="item-params">data: ${Number(data).toFixed(1)}</span>
+                            ${cmd.controller ? `<span style="color:#8b949e;font-size:11px;">контроллер: ${cmd.controller}</span>` : ''}
+                        </div>`;
+                    }
+                }
+                
+                html += '    </div>';
+                html += '</div>';
+            } else if (currentView === 'commands') {
+                // Вкладка Команды
+                html += renderCommandsTab(test);
+            } else {
+                // Вкладка Результат
+                html += renderResultTab(test);
+            }
+
+            container.innerHTML = html;
+            document.getElementById('editTitle').textContent = isNew ? '📝 Новый тест' : '📝 ' + test.name;
+
+            isRendering = false;
+        }
+
+        function renderCommandsTab(test) {
+            const commands = test.commands || [];
+            
+            // Получаем только алиасы-команды
+            const aliasCommands = {};
+            for (const key in aliasMap) {
+                if (aliasMap[key].type === 'command') {
+                    aliasCommands[key] = aliasMap[key];
+                }
+            }
+
+            // Проверяем, есть ли уже команда test_end
+            const hasTestEnd = commands.some(cmd => cmd.command === 'test_end');
+
+            let html = '';
+
+            // Строка выбора команды
+            html += '<div class="command-select-row">';
+            html += '    <div class="form-group small">';
+            html += '        <label>Время (сек)</label>';
+            html += '        <input type="number" id="addCommandTime" value="' + lastCommandTime + '" step="0.1" style="font-size:13px;padding:6px 10px;">';
+            html += '    </div>';
+            html += '    <div class="form-group">';
+            html += '        <label>Алиас-команда</label>';
+            html += '        <select id="addCommandSelect" style="font-size:13px;padding:6px 10px;">';
+            html += '            <option value="">-- Выберите команду --</option>';
+            for (const key in aliasCommands) {
+                const val = aliasCommands[key];
+                const target = val.command || key;
+                html += `            <option value="${key}" ${lastCommandAlias === key ? 'selected' : ''}>${key} → ${target}</option>`;
+            }
+            if (Object.keys(aliasCommands).length === 0) {
+                html += '            <option value="" disabled>Нет алиасов-команд в стенде</option>';
+            }
+            html += '        </select>';
+            html += '    </div>';
+            html += '    <div class="form-group small">';
+            html += '        <label>Data</label>';
+            html += '        <input type="number" id="addCommandData" value="' + lastCommandData + '" step="0.1" style="font-size:13px;padding:6px 10px;">';
+            html += '    </div>';
+            html += '    <button class="btn btn-sm btn-primary" onclick="addCommand()">➕ Добавить</button>';
+            if (!hasTestEnd) {
+                html += '    <button class="btn btn-sm btn-end" onclick="addTestEnd()">⏹️ Добавить test_end</button>';
+            } else {
+                html += '    <button class="btn btn-sm btn-end" disabled style="opacity:0.5;cursor:not-allowed;">⏹️ test_end уже добавлен</button>';
+            }
+            html += '</div>';
+
+            // Список добавленных команд (сортировка по времени)
+            html += '<div class="commands-list-container">';
+            if (commands.length === 0) {
+                html += '<div style="color:#8b949e;font-size:13px;padding:8px;text-align:center;">Нет добавленных команд</div>';
+            } else {
+                const sortedCommands = [...commands].sort((a, b) => (a.time || 0) - (b.time || 0));
+                for (let i = 0; i < sortedCommands.length; i++) {
+                    const cmd = sortedCommands[i];
+                    const timeMs = cmd.time || 0;
+                    const timeSec = (timeMs / 1000).toFixed(1);
+                    const data = cmd.data !== undefined ? cmd.data : 2;
+                    const isTestEnd = cmd.command === 'test_end';
+                    html += `<div class="command-item" style="${isTestEnd ? 'border-left-color:#d29922;' : ''}">
+                        <div class="command-info">
+                            <span class="time">⏱ ${timeSec} сек (${timeMs} мс)</span>
+                            <span class="cmd">${cmd.command}</span>
+                            ${!isTestEnd ? `<span class="data">data: ${Number(data).toFixed(1)}</span>` : ''}
+                            ${isTestEnd ? `<span class="badge-end">⏹️ Конец теста</span>` : ''}
+                        </div>
+                        <div class="command-actions">
+                            <button class="del-btn" onclick="removeCommand(${i})">✕</button>
+                        </div>
+                    </div>`;
+                }
+            }
+            html += '</div>';
+
+            return html;
+        }
+
+        function renderResultTab(test) {
+            const log = test.log || [];
+            const standart = test.standart || [];
+            const result = test.result || null;
+            const difference = test.difference || 100;
+
+            let html = '';
+
+            // Результат сравнения
+            if (result) {
+                const orderOk = result.order === 'ok';
+                const timeOk = result.time === 'ok';
+                html += '<div class="result-summary">';
+                html += `<div class="result-item">Порядок событий: <span class="badge ${orderOk ? 'badge-ok' : 'badge-no'}">${orderOk ? '✅ OK' : '❌ NO OK'}</span></div>`;
+                html += `<div class="result-item">Время событий: <span class="badge ${timeOk ? 'badge-ok' : 'badge-no'}">${timeOk ? '✅ OK' : '❌ NO OK'}</span></div>`;
+                html += '</div>';
+
+                if (result.order_diff && result.order_diff.length > 0) {
+                    html += '<div class="diff-details">';
+                    html += '<div><strong>Ошибки порядка:</strong></div>';
+                    for (const d of result.order_diff) {
+                        html += `<div class="diff-item">• ${d}</div>`;
+                    }
+                    html += '</div>';
+                }
+                if (result.time_diff && result.time_diff.length > 0) {
+                    html += '<div class="diff-details">';
+                    html += '<div><strong>Ошибки времени:</strong></div>';
+                    for (const d of result.time_diff) {
+                        html += `<div class="diff-item">• ${d}</div>`;
+                    }
+                    html += '</div>';
+                }
+            } else {
+                html += '<div style="color:#8b949e;padding:12px;text-align:center;">Результат сравнения еще не выполнен. Запустите тест на странице выполнения.</div>';
+            }
+
+            // Лог
+            html += '<div style="margin-top:12px;">';
+            html += '<label style="font-size:13px;font-weight:500;color:#8b949e;display:block;margin-bottom:4px;">Лог теста</label>';
+            html += '<div class="log-preview">';
+            if (log.length === 0) {
+                html += '<div style="color:#8b949e;padding:8px;text-align:center;">Лог пуст</div>';
+            } else {
+                const hasStandart = standart && standart.length > 0;
+                const maxShow = Math.min(log.length, 50);
+                const startIdx = Math.max(0, log.length - maxShow);
+                for (let i = startIdx; i < log.length; i++) {
+                    const entry = log[i];
+                    const time = entry[0] || 0;
+                    const name = typeof entry[1] === 'string' ? entry[1] : JSON.stringify(entry[1]);
+                    const data = entry[2] ? JSON.stringify(entry[2]) : '';
+                    
+                    let rowClass = '';
+                    if (hasStandart && i < standart.length) {
+                        const stdEntry = standart[i];
+                        const stdTime = stdEntry[0] || 0;
+                        const stdName = typeof stdEntry[1] === 'string' ? stdEntry[1] : JSON.stringify(stdEntry[1]);
+                        if (Math.abs(time - stdTime) > difference) rowClass += ' error-time';
+                        if (name !== stdName) rowClass += ' error-name';
+                    }
+                    
+                    html += `<div class="log-entry${rowClass}">
+                        <span class="ltime">${time}мс</span>
+                        <span class="lname">${name}</span>
+                        <span class="ldata">${data}</span>
+                    </div>`;
+                }
+                if (log.length > 50) {
+                    html += `<div style="color:#8b949e;padding:4px 8px;font-size:11px;">... и еще ${log.length - 50} записей</div>`;
+                }
+            }
+            html += '</div>';
+            html += '</div>';
+
+            return html;
+        }
+
+        // ========================================================================
+        // 6. УПРАВЛЕНИЕ ТЕСТАМИ
+        // ========================================================================
+        function onStandChange() {
+            const stand = document.getElementById('standSelect').value;
+            if (stand) {
+                currentStandName = stand;
+                sendApiRequest('stand_get', { stand_name: stand });
+                currentTest = null;
+                document.getElementById('editContent').innerHTML = '<div class="empty-message">Выберите тест из списка слева</div>';
+                document.getElementById('editTitle').textContent = '📝 Выберите тест для редактирования';
+                document.getElementById('saveBtn').disabled = true;
+                document.getElementById('deleteBtn').disabled = true;
+                document.getElementById('saveStandartBtn').disabled = true;
+            } else {
+                document.getElementById('groupSelect').innerHTML = '<option value="">-- Сначала выберите стенд --</option>';
+                document.getElementById('groupSelect').disabled = true;
+                document.getElementById('checkSelect').innerHTML = '<option value="">-- Сначала выберите группу --</option>';
+                document.getElementById('checkSelect').disabled = true;
+                document.getElementById('testList').innerHTML = '<div class="empty-message">Выберите проверку</div>';
+                document.getElementById('newTestBtn').disabled = true;
+                document.getElementById('copyTestBtn').disabled = true;
+            }
+        }
+
+        function onGroupChange() {
+            const stand = document.getElementById('standSelect').value;
+            const group = document.getElementById('groupSelect').value;
+            if (stand && group) {
+                currentStandName = stand;
+                currentGroupName = group;
+                sendApiRequest('group_get', { stand_name: stand, group_name: group });
+                currentTest = null;
+                document.getElementById('editContent').innerHTML = '<div class="empty-message">Выберите тест из списка слева</div>';
+                document.getElementById('editTitle').textContent = '📝 Выберите тест для редактирования';
+                document.getElementById('saveBtn').disabled = true;
+                document.getElementById('deleteBtn').disabled = true;
+                document.getElementById('saveStandartBtn').disabled = true;
+            }
+        }
+
+        function onCheckChange() {
+            const stand = document.getElementById('standSelect').value;
+            const group = document.getElementById('groupSelect').value;
+            const check = document.getElementById('checkSelect').value;
+            if (stand && group && check) {
+                currentStandName = stand;
+                currentGroupName = group;
+                currentCheckName = check;
+                sendApiRequest('check_get', {
+                    stand_name: stand,
+                    group_name: group,
+                    check_name: check
+                });
+                currentTest = null;
+                document.getElementById('editContent').innerHTML = '<div class="empty-message">Выберите тест из списка слева</div>';
+                document.getElementById('editTitle').textContent = '📝 Выберите тест для редактирования';
+                document.getElementById('saveBtn').disabled = true;
+                document.getElementById('deleteBtn').disabled = true;
+                document.getElementById('saveStandartBtn').disabled = true;
+            }
+        }
+
+        function selectTest(name) {
+            console.log('selectTest вызван:', name);
+            const stand = document.getElementById('standSelect').value;
+            const group = document.getElementById('groupSelect').value;
+            const check = document.getElementById('checkSelect').value;
+            if (stand && group && check && name) {
+                // Обновляем активный тест в списке
+                const items = document.querySelectorAll('.test-item');
+                items.forEach(el => el.classList.remove('active'));
+                // Находим элемент с нужным именем (учитываем, что в тексте может быть значок)
+                let target = null;
+                for (const el of items) {
+                    const nameSpan = el.querySelector('.test-name');
+                    if (nameSpan && nameSpan.textContent.includes(name)) {
+                        target = el;
+                        break;
+                    }
+                }
+                if (target) {
+                    target.classList.add('active');
+                    console.log('Активный элемент найден и подсвечен');
+                } else {
+                    console.log('Активный элемент не найден');
+                }
+                
+                // Очищаем текущий тест перед загрузкой нового
+                currentTest = null;
+                document.getElementById('editContent').innerHTML = '<div class="empty-message">Загрузка теста...</div>';
+                document.getElementById('editTitle').textContent = '📝 ' + name;
+                
+                loadTestData(stand, group, check, name);
+            }
+        }
+
+        function createTest() {
+            const stand = document.getElementById('standSelect').value;
+            const group = document.getElementById('groupSelect').value;
+            const check = document.getElementById('checkSelect').value;
+            if (!stand || !group || !check) {
+                showStatus('Выберите стенд, группу и проверку', 'error');
+                return;
+            }
+            currentTest = { name: '', description: '', difference: 100, commands: [], log: [], standart: [], stopOnError: false };
+            currentView = 'main';
+            document.getElementById('editTitle').textContent = '📝 Новый тест';
+            renderEditForm(currentTest);
+            document.getElementById('saveBtn').disabled = false;
+            document.getElementById('deleteBtn').disabled = true;
+            document.getElementById('saveStandartBtn').disabled = true;
+        }
+
+        function copyTest() {
+            const stand = document.getElementById('standSelect').value;
+            const group = document.getElementById('groupSelect').value;
+            const check = document.getElementById('checkSelect').value;
+            const currentTestName = currentTest ? currentTest.name : '';
+            
+            if (!stand || !group || !check) {
+                showStatus('Выберите стенд, группу и проверку', 'error');
+                return;
+            }
+            if (!currentTestName) {
+                showStatus('Выберите тест для копирования', 'error');
+                return;
+            }
+
+            const newName = prompt('Введите имя для нового теста:', currentTestName + '_copy');
+            if (!newName) {
+                showStatus('Отменено', 'info');
+                return;
+            }
+
+            sendApiRequest('copy_test', {
+                stand_name: stand,
+                group_name: group,
+                check_name: check,
+                source_name: currentTestName,
+                new_name: newName
+            });
+            showStatus('Копирование теста...', 'info');
+        }
+
+        function deleteCurrentTest() {
+            if (!currentTest || !currentTest.name) return;
+            if (!confirm('Удалить тест "' + currentTest.name + '"?')) return;
+            const stand = document.getElementById('standSelect').value;
+            const group = document.getElementById('groupSelect').value;
+            const check = document.getElementById('checkSelect').value;
+            sendApiRequest('test_delete_data', {
+                stand_name: stand,
+                group_name: group,
+                check_name: check,
+                test_name: currentTest.name
+            });
+        }
+
+        function saveStandart() {
+            const stand = document.getElementById('standSelect').value;
+            const group = document.getElementById('groupSelect').value;
+            const check = document.getElementById('checkSelect').value;
+            const name = currentTest.name || '';
+
+            if (!stand || !group || !check || !name) {
+                showStatus('Выберите все параметры', 'error');
+                return;
+            }
+            
+            if (!currentTest || !currentTest.log || currentTest.log.length === 0) {
+                showStatus('Нет лога для сохранения эталона', 'error');
+                return;
+            }
+
+            if (confirm('Сохранить текущий лог как эталон для теста "' + name + '"?')) {
+                sendApiRequest('test_save_standart', {
+                    stand_name: stand,
+                    group_name: group,
+                    check_name: check,
+                    test_name: name
+                });
+                showStatus('Сохранение эталона...', 'info');
+            }
+        }
+
+        function saveTest() {
+            const stand = document.getElementById('standSelect').value;
+            const group = document.getElementById('groupSelect').value;
+            const check = document.getElementById('checkSelect').value;
+
+            // Получаем данные с текущей вкладки
+            const nameEl = document.getElementById('testName');
+            const descEl = document.getElementById('testDescription');
+            const diffEl = document.getElementById('testDifference');
+            const stopEl = document.getElementById('stopOnErrorCheckbox');
+
+            if (nameEl) currentTest.name = nameEl.value.trim();
+            if (descEl) currentTest.description = descEl.value.trim();
+            if (diffEl) currentTest.difference = parseInt(diffEl.value) || 100;
+            if (stopEl) currentTest.stopOnError = stopEl.checked;
+
+            const name = currentTest.name || '';
+
+            if (!stand || !group || !check) {
+                showStatus('Выберите стенд, группу и проверку', 'error');
+                return;
+            }
+            if (!name) {
+                showStatus('Введите название теста', 'error');
+                return;
+            }
+
+            const commands = currentTest.commands || [];
+
+            const testData = {
+                name: name,
+                description: currentTest.description || '',
+                difference: currentTest.difference || 100,
+                stopOnError: currentTest.stopOnError || false,
+                commands: commands,
+                log: currentTest.log || [],
+                standart: currentTest.standart || [],
+                result: currentTest.result || null
+            };
+
+            sendApiRequest('test_save_data', {
+                stand_name: stand,
+                group_name: group,
+                check_name: check,
+                test: testData
+            });
+            showStatus('Сохранение теста...', 'info');
+        }
+
+        // ========================================================================
+        // 7. УПРАВЛЕНИЕ КОМАНДАМИ
+        // ========================================================================
+        function addCommand() {
+            const select = document.getElementById('addCommandSelect');
+            const aliasName = select.value;
+            const timeSec = parseFloat(document.getElementById('addCommandTime').value);
+            const data = parseFloat(document.getElementById('addCommandData').value);
+
+            if (!aliasName) {
+                showStatus('Выберите команду из списка', 'error');
+                return;
+            }
+            if (isNaN(timeSec) || timeSec < 0) {
+                showStatus('Введите корректное время (сек)', 'error');
+                return;
+            }
+            if (isNaN(data)) {
+                showStatus('Введите корректное значение data', 'error');
+                return;
+            }
+
+            if (!currentTest) {
+                showStatus('Нет выбранного теста', 'error');
+                return;
+            }
+            if (!currentTest.commands) currentTest.commands = [];
+
+            const timeMs = Math.round(timeSec * 1000);
+            if (currentTest.commands.some(c => c.time === timeMs && c.command === aliasName)) {
+                showStatus('Команда уже существует с таким временем', 'warning');
+                return;
+            }
+
+            lastCommandTime = String(timeSec);
+            lastCommandAlias = aliasName;
+            lastCommandData = String(data);
+
+            currentTest.commands.push({
+                time: timeMs,
+                command: aliasName,
+                data: data
+            });
+
+            currentTest.commands.sort((a, b) => (a.time || 0) - (b.time || 0));
+
+            renderEditForm(currentTest);
+            showStatus('Команда "' + aliasName + '" добавлена', 'success');
+        }
+
+        function addTestEnd() {
+            if (!currentTest) {
+                showStatus('Нет выбранного теста', 'error');
+                return;
+            }
+            if (!currentTest.commands) currentTest.commands = [];
+
+            // Проверяем, есть ли уже test_end
+            if (currentTest.commands.some(cmd => cmd.command === 'test_end')) {
+                showStatus('test_end уже добавлен', 'warning');
+                return;
+            }
+
+            const timeSec = parseFloat(document.getElementById('addCommandTime').value) || 0;
+            const timeMs = Math.round(timeSec * 1000);
+
+            // Проверяем, есть ли команда с таким временем
+            if (currentTest.commands.some(c => c.time === timeMs)) {
+                showStatus('В это время уже есть команда', 'warning');
+                return;
+            }
+
+            currentTest.commands.push({
+                time: timeMs,
+                command: 'test_end',
+                data: 0
+            });
+
+            currentTest.commands.sort((a, b) => (a.time || 0) - (b.time || 0));
+
+            renderEditForm(currentTest);
+            showStatus('test_end добавлен в ' + timeSec + ' сек', 'success');
+        }
+
+        function removeCommand(index) {
+            if (!currentTest || !currentTest.commands) return;
+            currentTest.commands.splice(index, 1);
+            renderEditForm(currentTest);
+            showStatus('Команда удалена', 'success');
+        }
+
+        // ========================================================================
+        // 8. ЗАПУСК
+        // ========================================================================
+        connectWebSocket();
+        
+        setInterval(() => {
+            if (isConnected) {
+                loadStands();
+            }
+        }, 30000);
+    </script>
+</body>
+</html>

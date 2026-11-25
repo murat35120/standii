@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отладка триггеров</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0d1117; color: #c9d1d9; min-height: 100vh; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; background: #161b22; border-radius: 16px; padding: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+        header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px; border-bottom: 1px solid #30363d; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+        header h1 { font-size: 24px; font-weight: 600; color: #f0f6fc; }
+        .status { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #8b949e; }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; transition: background 0.3s; }
+        .status-dot.connected { background: #3fb950; box-shadow: 0 0 8px rgba(63,185,80,0.4); }
+        .status-dot.disconnected { background: #f85149; box-shadow: 0 0 8px rgba(248,81,73,0.4); }
+        .status-dot.debug { background: #d29922; box-shadow: 0 0 8px rgba(210,153,34,0.4); animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .panel { background: #0d1117; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+        .panel h2 { font-size: 16px; font-weight: 500; color: #f0f6fc; margin-bottom: 12px; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .btn { padding: 6px 14px; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.25s; }
+        .btn-primary { background: #1f6feb; color: #fff; }
+        .btn-primary:hover { background: #388bfd; }
+        .btn-success { background: #238636; color: #fff; }
+        .btn-success:hover { background: #2ea043; }
+        .btn-danger { background: #da3633; color: #fff; }
+        .btn-danger:hover { background: #f85149; }
+        .btn-warning { background: #d29922; color: #fff; }
+        .btn-warning:hover { background: #e3b341; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+        .btn-outline { background: transparent; border: 1px solid #30363d; color: #c9d1d9; }
+        .btn-outline:hover { background: #30363d; }
+        .btn-debug { background: #d29922; color: #fff; }
+        .btn-debug:hover { background: #e3b341; }
+        .btn-debug.active { background: #f85149; color: #fff; }
+        .btn-debug.active:hover { background: #ff7b72; }
+        .btn-tab { background: transparent; border: 1px solid #30363d; color: #8b949e; }
+        .btn-tab:hover { background: #21262d; color: #f0f6fc; }
+        .btn-tab.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+        .btn-packet { background: #1f6feb; color: #fff; }
+        .btn-packet:hover { background: #388bfd; }
+        .btn-packet.active { background: #da3633; color: #fff; }
+        .btn-packet.active:hover { background: #f85149; }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 500; color: #8b949e; margin-bottom: 4px; }
+        .form-group select, .form-group input { width: 100%; padding: 8px 12px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; color: #f0f6fc; font-size: 14px; }
+        .form-group select:focus, .form-group input:focus { outline: none; border-color: #58a6ff; }
+        .status-bar { padding: 10px 16px; border-radius: 8px; margin-bottom: 12px; }
+        .status-bar.info { background: #0d1f3c; color: #58a6ff; border: 1px solid #1f6feb; }
+        .status-bar.success { background: #0d1f1a; color: #3fb950; border: 1px solid #238636; }
+        .status-bar.error { background: #1f0d0d; color: #f85149; border: 1px solid #da3633; }
+        .status-bar.debug { background: #1f1f0d; color: #d29922; border: 1px solid #d29922; }
+        .two-columns { display: flex; gap: 20px; }
+        .two-columns .left { flex: 0 0 350px; }
+        .two-columns .right { flex: 1; }
+        .tabs { display: flex; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid #30363d; padding-bottom: 8px; flex-wrap: wrap; }
+        .tabs .btn { padding: 6px 16px; border-radius: 6px 6px 0 0; }
+        .short-log { max-height: 500px; overflow-y: auto; background: #0d1117; border-radius: 8px; border: 1px solid #30363d; font-family: 'Consolas', monospace; font-size: 13px; }
+        .short-entry { padding: 6px 12px; border-bottom: 1px solid #21262d; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; cursor: pointer; transition: background 0.2s; }
+        .short-entry:hover { background: #161b22; }
+        .short-entry .s-time { color: #58a6ff; min-width: 80px; font-weight: 600; font-size: 12px; }
+        .short-entry .s-controller { color: #d29922; min-width: 100px; font-size: 12px; }
+        .short-entry .s-name { color: #f0883e; font-weight: 700; font-size: 14px; min-width: 80px; }
+        .short-entry .s-params { color: #58a6ff; font-size: 12px; font-family: 'Consolas', monospace; background: #0d1117; padding: 1px 8px; border-radius: 4px; border: 1px solid #1f6feb; }
+        .short-entry .s-badge { font-size: 10px; padding: 1px 8px; border-radius: 10px; background: #1f6feb; color: #fff; }
+        .short-entry .s-new { background: #d29922; color: #fff; }
+        .full-log { max-height: 500px; overflow-y: auto; background: #0d1117; border-radius: 8px; border: 1px solid #30363d; font-family: 'Consolas', monospace; font-size: 12px; }
+        .full-entry { padding: 6px 12px; border-bottom: 1px solid #21262d; cursor: pointer; }
+        .full-entry:hover { background: #161b22; }
+        .full-entry .f-time { color: #58a6ff; }
+        .full-entry .f-api { color: #d29922; font-weight: 600; }
+        .full-entry .f-ok { color: #3fb950; }
+        .full-entry .f-error { color: #f85149; }
+        .full-entry .f-trigger { color: #f0883e; font-weight: 700; }
+        .full-entry .f-data { color: #8b949e; font-size: 11px; word-break: break-all; white-space: pre-wrap; max-height: 300px; overflow-y: auto; padding: 4px 8px; background: #0d1117; border-radius: 4px; margin-top: 4px; border: 1px solid #21262d; display: none; }
+        .full-entry .f-data.show { display: block; }
+        .trigger-list { max-height: 200px; overflow-y: auto; }
+        .trigger-item { background: #161b22; padding: 6px 10px; border-radius: 4px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px; border-left: 3px solid #3fb950; font-size: 13px; }
+        .trigger-item .info { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+        .trigger-item .info .type { color: #58a6ff; font-weight: 600; }
+        .trigger-item .info .params { color: #8b949e; font-size: 12px; }
+        .trigger-item .actions { display: flex; gap: 4px; }
+        .trigger-item .actions button { background: none; border: none; cursor: pointer; font-size: 12px; padding: 0 4px; }
+        .trigger-item .actions .del-btn { color: #f85149; }
+        .trigger-item .actions .del-btn:hover { color: #ff7b72; }
+        .add-trigger-row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; padding: 10px; background: #0d1117; border-radius: 6px; border: 1px solid #30363d; }
+        .add-trigger-row .form-group { flex: 1; min-width: 100px; margin-bottom: 0; }
+        .add-trigger-row .form-group.small { flex: 0 0 auto; min-width: 60px; }
+        .add-trigger-row .form-group select, .add-trigger-row .form-group input { padding: 6px 10px; font-size: 13px; width: 100%; }
+        .add-trigger-row .btn { padding: 6px 14px; font-size: 13px; align-self: flex-end; }
+        .empty-message { color: #8b949e; text-align: center; padding: 30px 0; }
+        .debug-indicator { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 12px; font-size: 12px; }
+        .debug-indicator.on { background: #1a7f37; color: #d4edda; }
+        .debug-indicator.off { background: #30363d; color: #8b949e; }
+        .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+        .btn-row .btn { flex: 1; min-width: 70px; }
+        .trigger-count { font-size: 13px; color: #8b949e; }
+        .hidden { display: none !important; }
+        .command-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 6px; margin-bottom: 8px; }
+        .command-grid .btn { padding: 4px 8px; font-size: 12px; }
+        .packet-info { background: #0d1117; border-radius: 6px; padding: 10px 14px; font-family: 'Consolas', monospace; font-size: 13px; border: 1px solid #30363d; min-height: 60px; }
+        .packet-info .byte-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+        .packet-info .byte { background: #161b22; padding: 2px 8px; border-radius: 4px; border: 1px solid #30363d; font-size: 12px; }
+        .packet-info .byte.highlight { border-color: #d29922; background: #1f1f0d; color: #d29922; }
+        .packet-info .bit-indicator { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 11px; margin: 0 2px; }
+        .packet-info .bit-on { background: #1a7f37; color: #d4edda; }
+        .packet-info .bit-off { background: #30363d; color: #8b949e; }
+        @media (max-width: 1024px) { .two-columns { flex-direction: column; } .two-columns .left { flex: 1; } }
+        @media (max-width: 768px) { .add-trigger-row .form-group { min-width: 100%; } .add-trigger-row .form-group.small { flex: 1; } .command-grid { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); } }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>🔍 Отладка триггеров</h1>
+        <div class="status">
+            <span class="status-dot disconnected" id="statusDot"></span>
+            <span id="statusText">Отключено</span>
+        </div>
+    </header>
+
+    <div id="statusBar" class="status-bar info">Загрузка данных...</div>
+
+    <div class="two-columns">
+        <div class="left">
+            <div class="panel">
+                <h2>🎯 Выбор контроллера</h2>
+                <div class="form-group">
+                    <label>Контроллер</label>
+                    <select id="controllerSelect" onchange="onControllerChange()">
+                        <option value="">-- Выберите контроллер --</option>
+                    </select>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-primary" onclick="getTriggersList()">📋 Список триггеров</button>
+                    <button class="btn btn-outline" onclick="loadControllers()">🔄 Обновить</button>
+                    <button class="btn btn-outline" onclick="forcePoll()">📡 Опрос</button>
+                </div>
+                <div style="margin-top:8px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+                    <span class="debug-indicator off" id="debugIndicator">🐛 Отладка выключена</span>
+                    <span class="trigger-count" id="triggerCount">Триггеров: 0</span>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>🎮 Управление выходами</h2>
+                <div class="command-grid">
+                    <button class="btn btn-success" onclick="sendCommand('green')">🟢 Зеленый</button>
+                    <button class="btn btn-danger" onclick="sendCommand('red')">🔴 Красный</button>
+                    <button class="btn btn-warning" onclick="sendCommand('sound')">🔊 Звук</button>
+                    <button class="btn btn-outline" onclick="sendCommand('lock')">🔒 Замок</button>
+                    <button class="btn btn-outline" onclick="sendCommand('d0')">D0</button>
+                    <button class="btn btn-outline" onclick="sendCommand('d1')">D1</button>
+                    <button class="btn btn-outline" onclick="sendCommand('open_for_out')">🚪 Выход</button>
+                    <button class="btn btn-outline" onclick="sendCommand('open_for_in')">🚪 Вход</button>
+                    <button class="btn btn-outline" onclick="sendCommand('new_address')">🔄 Адрес</button>
+                </div>
+                <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                    <label style="color:#8b949e; font-size:13px;">Интервал (сек):</label>
+                    <input type="number" id="commandInterval" value="2" min="0" max="255" step="0.1" style="width:80px; padding:4px 8px; background:#161b22; border:1px solid #30363d; border-radius:6px; color:#f0f6fc;">
+                    <span style="font-size:12px; color:#8b949e;">(0 = ∞)</span>
+                    <button class="btn btn-sm btn-outline" onclick="sendCommand('get_info')">📊 Инфо</button>
+                </div>
+                <div id="commandResult" style="margin-top:8px; font-size:13px;"></div>
+            </div>
+
+            <div class="panel">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                    <h2>📦 Последний пакет (0x04)</h2>
+                    <div style="display:flex; gap:4px;">
+                        <button class="btn btn-sm btn-packet" id="packetToggleBtn" onclick="togglePacketLogging()">📦 Включить пакеты</button>
+                        <button class="btn btn-sm btn-outline" onclick="requestLastPacket()">🔄 Обновить</button>
+                    </div>
+                </div>
+                <div id="lastPacketContainer" class="packet-info">
+                    <div class="empty-message">Нет данных. Выполните опрос или команду.</div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>➕ Добавить триггер</h2>
+                <div class="add-trigger-row">
+                    <div class="form-group">
+                        <label>Тип</label>
+                        <select id="triggerTypeSelect" onchange="onTriggerTypeChange()">
+                            <option value="">-- Загрузка... --</option>
+                        </select>
+                    </div>
+                    <div class="form-group small" id="sostGroup">
+                        <label>Sost</label>
+                        <input type="number" id="triggerSost" value="1" step="1" min="0">
+                    </div>
+                    <div class="form-group small" id="minGroup" style="display:none;">
+                        <label>Min</label>
+                        <input type="number" id="triggerMin" value="0" step="0.1">
+                    </div>
+                    <div class="form-group small" id="maxGroup" style="display:none;">
+                        <label>Max</label>
+                        <input type="number" id="triggerMax" value="3" step="0.1">
+                    </div>
+                    <div class="form-group small" id="devGroup" style="display:none;">
+                        <label>Dev</label>
+                        <input type="number" id="triggerDev" value="0" step="0.1">
+                    </div>
+                    <button class="btn btn-success" onclick="addTrigger()">➕</button>
+                </div>
+                <div id="triggerAddResult" style="margin-top:8px;font-size:13px;"></div>
+            </div>
+
+            <div class="panel">
+                <h2>📋 Установленные триггеры</h2>
+                <div id="triggerListContainer" class="trigger-list">
+                    <div class="empty-message">Выберите контроллер</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="right">
+            <div class="panel">
+                <div class="flex-between">
+                    <h2>📊 Лог событий</h2>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <button class="btn btn-debug" id="debugToggleBtn" onclick="toggleDebug()">🐛 Включить</button>
+                        <button class="btn btn-sm btn-danger" onclick="clearLog()">🗑️ Очистить</button>
+                        <button class="btn btn-sm btn-outline" onclick="refreshLog()">🔄</button>
+                    </div>
+                </div>
+                <div class="tabs">
+                    <button class="btn btn-tab active" id="tabShort" onclick="switchTab('short')">⚡ Срабатывания (<span id="shortCount">0</span>)</button>
+                    <button class="btn btn-tab" id="tabFull" onclick="switchTab('full')">📋 Полный лог (<span id="fullCount">0</span>)</button>
+                    <button class="btn btn-tab" id="tabPackets" onclick="switchTab('packets')">📦 Пакеты (<span id="packetCount">0</span>)</button>
+                </div>
+
+                <div id="panelShort" class="tab-panel">
+                    <div id="shortLogContainer" class="short-log">
+                        <div class="empty-message">Нет срабатываний. Включите отладку и выполните действие.</div>
+                    </div>
+                </div>
+
+                <div id="panelFull" class="tab-panel hidden">
+                    <div id="fullLogContainer" class="full-log">
+                        <div class="empty-message">Нет событий. Включите отладку.</div>
+                    </div>
+                </div>
+
+                <div id="panelPackets" class="tab-panel hidden">
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; align-items:center;">
+                        <button class="btn btn-sm btn-outline" onclick="clearPackets()">🗑️ Очистить пакеты</button>
+                        <label style="color:#8b949e; font-size:12px; display:flex; align-items:center; gap:4px;">
+                            <input type="checkbox" id="filterPackets" checked onchange="renderPacketLog()">
+                            Только 0x04
+                        </label>
+                        <span style="color:#8b949e; font-size:12px;">Пакетов: <span id="packetCountLabel">0</span></span>
+                        <span style="color:#8b949e; font-size:12px;" id="packetStatusLabel">🟡 выкл</span>
+                    </div>
+                    <div id="packetLogContainer" class="full-log">
+                        <div class="empty-message">Нет пакетов</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ========================================================================
+    // 1. КОНСТАНТЫ И ПЕРЕМЕННЫЕ
+    // ========================================================================
+    const WS_API_KEY = '1356_api';
+    let ws = null;
+    let isConnected = false;
+    let controllersList = {};
+    let currentController = null;
+    let debugMode = false;
+    let allLogs = [];
+    let shortLogs = [];
+    let packetLogs = [];
+    let currentTriggers = [];
+    let currentTab = 'short';
+    let triggerTypes = {};
+    let packetPaused = false;
+    let packetLoggingEnabled = false;
+
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const statusBar = document.getElementById('statusBar');
+
+    // ========================================================================
+    // 2. WEB SOCKET
+    // ========================================================================
+    function showStatus(msg, type) {
+        type = type || 'info';
+        statusBar.textContent = msg;
+        statusBar.className = 'status-bar ' + type;
+    }
+
+    function connectWebSocket() {
+        const host = window.location.hostname;
+        const wsUrl = 'ws://' + host + ':9090';
+        try {
+            ws = new WebSocket(wsUrl);
+            ws.onopen = function() {
+                isConnected = true;
+                statusDot.className = 'status-dot connected';
+                statusText.textContent = 'Подключено';
+                showStatus('Соединение установлено', 'success');
+                loadControllers();
+                loadTriggerTypes();
+                setTimeout(() => sendApiRequest('debug_log', {}), 500);
+                setTimeout(() => sendApiRequest('debug_enable_packet_logging', {}), 300);
+            };
+            ws.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log('WS:', data);
+                    handleIncomingMessage(data);
+                } catch (e) {
+                    console.error('Ошибка парсинга:', e);
+                }
+            };
+            ws.onclose = function() {
+                isConnected = false;
+                statusDot.className = 'status-dot disconnected';
+                statusText.textContent = 'Отключено';
+                showStatus('Соединение потеряно', 'error');
+                setTimeout(connectWebSocket, 3000);
+            };
+            ws.onerror = function(error) {
+                console.error('WebSocket ошибка:', error);
+            };
+        } catch (e) {
+            console.error('Ошибка подключения:', e);
+            setTimeout(connectWebSocket, 3000);
+        }
+    }
+
+    function sendApiRequest(api, params) {
+        params = params || {};
+        if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) {
+            console.warn('WebSocket не подключен');
+            return false;
+        }
+        try {
+            const message = { api_key: WS_API_KEY, api: api };
+            for (const key in params) {
+                if (params.hasOwnProperty(key)) {
+                    message[key] = params[key];
+                }
+            }
+            ws.send(JSON.stringify(message));
+            console.log('📤 Отправлено:', api, params);
+            return true;
+        } catch (e) {
+            console.error('Ошибка отправки:', e);
+            showStatus('❌ Ошибка: ' + e.message, 'error');
+            return false;
+        }
+    }
+
+    // ========================================================================
+    // 3. ОБРАБОТКА ВХОДЯЩИХ СООБЩЕНИЙ
+    // ========================================================================
+    function formatTriggerMessage(data) {
+        const info = data.trigger_info || data;
+        let params = '';
+        if (info.sost !== undefined) {
+            params = ` (sost:${info.sost})`;
+        } else if (info.diff !== undefined) {
+            params = ` (diff:${info.diff})`;
+        }
+        const controller = info.controller || 'unknown';
+        const name = info.name || 'unknown';
+        return controller + ' → ' + name + params;
+    }
+
+    function handleIncomingMessage(data) {
+        try {
+            // ===== ОБРАБОТКА trigger_info (ОДИН РАЗ) =====
+            if (data.api === 'trigger_info' && data.trigger_info) {
+                const time = new Date().toLocaleTimeString('ru-RU', { hour12: false });
+                const triggerData = data.trigger_info;
+                
+                // Формируем сообщение
+                let params = '';
+                if (triggerData.sost !== undefined) {
+                    params = ` (sost:${triggerData.sost})`;
+                } else if (triggerData.diff !== undefined) {
+                    params = ` (diff:${triggerData.diff})`;
+                }
+                const shortMsg = triggerData.controller + ' → ' + triggerData.name + params;
+                
+                // Добавляем в краткий лог
+                const event = {
+                    timestamp: Date.now(),
+                    controller: triggerData.controller || 'unknown',
+                    trigger_info: triggerData,
+                    data: triggerData.data || []
+                };
+                addToShortLog(event);
+                
+                // Добавляем в полный лог (ОДНА ЗАПИСЬ)
+                allLogs.push({
+                    time: time,
+                    type: 'trigger',
+                    api: '🔔 ТРИГГЕР',
+                    short: shortMsg,
+                    fullJson: JSON.stringify(data, null, 2)
+                });
+                
+                renderFullLog();
+                document.getElementById('fullCount').textContent = allLogs.length;
+                return; // Выходим, чтобы не обрабатывать повторно
+            }
+
+            if (data.api === 'debug_trigger' && data.event) {
+                addToShortLog(data.event);
+                return;
+            }
+
+            if (data.api === 'debug_packet') {
+                addPacket(data);
+                if (data.controller === currentController) {
+                    renderLastPacket(data);
+                }
+                return;
+            }
+
+            if (data.api === 'controllers_list' && data.list) {
+                controllersList = data.list;
+                renderControllerSelect();
+                if (currentController) {
+                    updateTriggersList();
+                }
+                return;
+            }
+
+            if (data.api === 'triggers_type' && data.list) {
+                triggerTypes = data.list;
+                renderTriggerTypeSelect();
+                return;
+            }
+
+            if (data.api === 'debug_start') {
+                debugMode = true;
+                updateDebugIndicator();
+                showStatus('🐛 Отладка включена', 'debug');
+                return;
+            }
+            if (data.api === 'debug_stop') {
+                debugMode = false;
+                updateDebugIndicator();
+                showStatus('Отладка выключена', 'info');
+                return;
+            }
+
+            if (data.api === 'debug_log') {
+                debugMode = data.mode || false;
+                updateDebugIndicator();
+                if (data.log && data.log.length > 0) {
+                    for (const entry of data.log) {
+                        addToShortLog(entry);
+                    }
+                }
+                return;
+            }
+
+            if (data.api === 'debug_send_command') {
+                const resultDiv = document.getElementById('commandResult');
+                if (data.ok) {
+                    resultDiv.innerHTML = `<div style="color:#3fb950;">✅ ${data.info}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div style="color:#f85149;">❌ ${data.info}</div>`;
+                }
+                return;
+            }
+
+            if (data.api === 'debug_get_last_packet') {
+                if (data.ok && data.packet) {
+                    renderLastPacket(data.packet);
+                } else {
+                    document.getElementById('lastPacketContainer').innerHTML = 
+                        `<div class="empty-message">${data.info || 'Нет данных'}</div>`;
+                }
+                return;
+            }
+
+            if (data.api === 'trigger_add') {
+                if (data.ok) {
+                    document.getElementById('triggerAddResult').innerHTML = 
+                        '<div style="color:#3fb950;">✅ Добавлен</div>';
+                    updateTriggersList();
+                } else {
+                    document.getElementById('triggerAddResult').innerHTML = 
+                        '<div style="color:#f85149;">❌ ' + (data.info || 'Ошибка') + '</div>';
+                }
+                return;
+            }
+
+            if (data.api === 'trigger_dell') {
+                if (data.ok) {
+                    updateTriggersList();
+                }
+                return;
+            }
+
+            if (data.api === 'debug_state' && data.result) {
+                if (data.result.triggers) {
+                    currentTriggers = data.result.triggers;
+                    renderTriggersList(data.result.triggers);
+                    document.getElementById('triggerCount').textContent = 
+                        'Триггеров: ' + data.result.triggers.length;
+                }
+                return;
+            }
+
+            if (data.api === 'debug_enable_packet_logging') {
+                packetLoggingEnabled = data.enable === true;
+                updatePacketButton();
+                document.getElementById('packetStatusLabel').textContent = packetLoggingEnabled ? '🟢 вкл' : '🟡 выкл';
+                return;
+            }
+
+            // Остальные сообщения – добавляем в полный лог
+            const time = new Date().toLocaleTimeString('ru-RU', { hour12: false });
+            let shortMsg = '';
+            let type = 'info';
+            let apiName = data.api || 'unknown';
+            
+            if (data.ok === 1) {
+                type = 'success';
+                shortMsg = '✅ OK' + (data.info ? ' - ' + data.info : '');
+            } else if (data.ok === 0 || data.info === 'wrong api') {
+                type = 'error';
+                shortMsg = '❌ ' + (data.info || 'Ошибка');
+            } else {
+                shortMsg = '📋 ' + JSON.stringify(data).substring(0, 50) + '...';
+            }
+            
+            allLogs.push({
+                time: time,
+                type: type,
+                api: apiName,
+                short: shortMsg,
+                fullJson: JSON.stringify(data, null, 2)
+            });
+            
+            renderFullLog();
+            document.getElementById('fullCount').textContent = allLogs.length;
+
+        } catch (e) {
+            console.error('Ошибка обработки:', e);
+            showStatus('❌ Ошибка: ' + e.message, 'error');
+        }
+    }
+
+    // ========================================================================
+    // 4. ПОЛНЫЙ ЛОГ
+    // ========================================================================
+    function renderFullLog() {
+        const container = document.getElementById('fullLogContainer');
+        
+        if (allLogs.length === 0) {
+            container.innerHTML = '<div class="empty-message">Нет событий. Включите отладку.</div>';
+            return;
+        }
+
+        let html = '';
+        const maxShow = Math.min(allLogs.length, 200);
+        const startIdx = allLogs.length - maxShow;
+
+        for (let i = startIdx; i < allLogs.length; i++) {
+            const e = allLogs[i];
+            const isError = e.type === 'error';
+            
+            html += '<div class="full-entry" onclick="toggleFullData(this)">';
+            html += '    <span class="f-time">' + e.time + '</span> ';
+            html += '    <span class="f-api">' + e.api + '</span> ';
+            
+            if (e.type === 'trigger') {
+                html += '    <span class="f-trigger">' + e.short + '</span>';
+            } else if (isError) {
+                html += '    <span class="f-error">' + e.short + '</span>';
+            } else if (e.type === 'success') {
+                html += '    <span class="f-ok">' + e.short + '</span>';
+            } else if (e.type === 'packet') {
+                html += '    <span style="color:#58a6ff;">' + e.short + '</span>';
+            } else {
+                html += '    <span class="f-data">' + e.short + '</span>';
+            }
+            
+            html += '    <div class="f-data">' + (e.fullJson || '') + '</div>';
+            html += '</div>';
+        }
+
+        container.innerHTML = html;
+    }
+
+    function toggleFullData(element) {
+        const dataDiv = element.querySelector('.f-data');
+        if (dataDiv) {
+            dataDiv.classList.toggle('show');
+        }
+    }
+
+    // ========================================================================
+    // 5. КРАТКИЙ ЛОГ
+    // ========================================================================
+    function addToShortLog(entry) {
+        if (!entry || !entry.trigger_info) return;
+        
+        const name = entry.trigger_info.name || 'unknown';
+        const controllerKey = entry.controller || 'unknown';
+        const isAnalog = name.startsWith('va_') || name.startsWith('tm_') || name.startsWith('exit_');
+        const isV = name.startsWith('v_');
+        const isDiff = name.startsWith('va_diff_');
+        
+        let min = '?', max = '?', dev = '?';
+        
+        if (isAnalog || isV) {
+            const ctrl = controllersList[controllerKey];
+            if (ctrl && ctrl.triggers) {
+                for (const tr of ctrl.triggers) {
+                    if (tr.type === name) {
+                        if (tr.min !== undefined) min = tr.min;
+                        if (tr.max !== undefined) max = tr.max;
+                        if (tr.dev !== undefined) dev = tr.dev;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        let paramsDisplay = '';
+        if (isDiff) {
+            const diffValue = entry.trigger_info.diff !== undefined ? entry.trigger_info.diff : '?';
+            paramsDisplay = `diff: ${diffValue}`;
+        } else if (isAnalog) {
+            const currentValue = entry.trigger_info.sost !== undefined ? entry.trigger_info.sost : '?';
+            paramsDisplay = `min:${min} max:${max} dev:${dev} → ${currentValue}`;
+        } else if (isV) {
+            const currentValue = entry.trigger_info.sost !== undefined ? entry.trigger_info.sost : '?';
+            paramsDisplay = `sost:${currentValue}`;
+        } else {
+            const sost = entry.trigger_info.sost !== undefined ? entry.trigger_info.sost : '?';
+            paramsDisplay = `sost:${sost}`;
+        }
+        
+        const shortEntry = {
+            time: new Date(entry.timestamp).toLocaleTimeString('ru-RU', { hour12: false }),
+            controller: controllerKey,
+            name: name,
+            sost: entry.trigger_info.sost !== undefined ? entry.trigger_info.sost : '?',
+            params: paramsDisplay,
+            isAnalog: isAnalog || isV || isDiff,
+            data: entry.data || [],
+            full: entry
+        };
+        
+        shortLogs.push(shortEntry);
+        if (shortLogs.length > 500) {
+            shortLogs.shift();
+        }
+        
+        renderShortLog();
+        document.getElementById('shortCount').textContent = shortLogs.length;
+    }
+
+    function renderShortLog() {
+        const container = document.getElementById('shortLogContainer');
+        
+        if (shortLogs.length === 0) {
+            container.innerHTML = '<div class="empty-message">Нет срабатываний. Включите отладку и выполните действие.</div>';
+            return;
+        }
+
+        let html = '';
+        const maxShow = Math.min(shortLogs.length, 200);
+        const startIdx = shortLogs.length - maxShow;
+
+        for (let i = startIdx; i < shortLogs.length; i++) {
+            const e = shortLogs[i];
+            const isNew = e.name === 'new controller';
+            
+            html += '<div class="short-entry" onclick="showShortFull(' + i + ')">';
+            html += '    <span class="s-time">' + e.time + '</span>';
+            html += '    <span class="s-controller">' + e.controller + '</span>';
+            html += '    <span class="s-name">' + e.name + '</span>';
+            html += '    <span class="s-params">' + e.params + '</span>';
+            if (isNew) {
+                html += '    <span class="s-badge s-new">🆕 новый</span>';
+            }
+            html += '</div>';
+        }
+
+        container.innerHTML = html;
+    }
+
+    function showShortFull(index) {
+        const e = shortLogs[index];
+        if (!e) return;
+        
+        alert(
+            '=== СРАБАТЫВАНИЕ ТРИГГЕРА ===\n\n' +
+            'Время: ' + e.time + '\n' +
+            'Контроллер: ' + e.controller + '\n' +
+            'Имя: ' + e.name + '\n' +
+            'Параметры: ' + e.params + '\n' +
+            'Данные: [' + (e.data ? e.data.join(', ') : '') + ']\n\n' +
+            '=== ПОЛНЫЕ ДАННЫЕ ===\n\n' +
+            JSON.stringify(e.full, null, 2)
+        );
+    }
+
+    // ========================================================================
+    // 6. ПАКЕТЫ
+    // ========================================================================
+    const MAX_PACKETS = 50;
+
+    function addPacket(packetData) {
+        if (packetPaused) return;
+        const time = new Date().toLocaleTimeString('ru-RU', { hour12: false });
+        const entry = {
+            time: time,
+            controller: packetData.controller,
+            address: packetData.address,
+            hex: packetData.hex,
+            data: packetData.data,
+            timestamp: packetData.timestamp,
+            isPoll: packetData.data && packetData.data[1] === 4
+        };
+        packetLogs.push(entry);
+        if (packetLogs.length > MAX_PACKETS) {
+            packetLogs.shift();
+        }
+        renderPacketLog();
+        document.getElementById('packetCount').textContent = packetLogs.length;
+        document.getElementById('packetCountLabel').textContent = packetLogs.length;
+    }
+
+    function renderPacketLog() {
+        const container = document.getElementById('packetLogContainer');
+        const filter = document.getElementById('filterPackets').checked;
+        
+        let filtered = packetLogs;
+        if (filter) {
+            filtered = packetLogs.filter(p => p.isPoll);
+        }
+        
+        if (filtered.length === 0) {
+            container.innerHTML = '<div class="empty-message">Нет пакетов' + (filter ? ' (фильтр 0x04)' : '') + '</div>';
+            return;
+        }
+        
+        let html = '';
+        const maxShow = Math.min(filtered.length, MAX_PACKETS);
+        const startIdx = filtered.length - maxShow;
+        
+        for (let i = startIdx; i < filtered.length; i++) {
+            const p = filtered[i];
+            html += `<div class="full-entry" onclick="toggleFullData(this)">`;
+            html += `<span class="f-time">${p.time}</span> `;
+            html += `<span class="f-api">📦 Пакет</span> `;
+            html += `<span style="color:#d29922;">${p.controller}</span> `;
+            html += `<span style="color:#58a6ff;">[${p.hex}]</span>`;
+            html += `<div class="f-data">${JSON.stringify(p.data, null, 2)}</div>`;
+            html += `</div>`;
+        }
+        container.innerHTML = html;
+    }
+
+    function renderLastPacket(packet) {
+        const container = document.getElementById('lastPacketContainer');
+        if (!packet) {
+            container.innerHTML = '<div class="empty-message">Нет данных</div>';
+            return;
+        }
+        const data = packet.data || [];
+        const hex = packet.hex || '';
+        let byte3 = data[3] !== undefined ? data[3] : '?';
+        let byte3bits = '';
+        let bitsHtml = '';
+        
+        if (typeof byte3 === 'number') {
+            byte3bits = '0b' + byte3.toString(2).padStart(8, '0');
+            const bits = [
+                { bit: 1, label: 'led', emoji: '🟢' },
+                { bit: 2, label: 'zumm', emoji: '🔊' },
+                { bit: 4, label: 'sound', emoji: '🔊' },
+                { bit: 8, label: 'lock', emoji: '🔒' }
+            ];
+            bitsHtml = bits.map(b => 
+                `<span class="bit-indicator ${(byte3 & b.bit) ? 'bit-on' : 'bit-off'}">${b.emoji} ${b.label}=${(byte3 & b.bit) ? '1' : '0'}</span>`
+            ).join(' ');
+        }
+        
+        let html = `
+            <div style="display:flex; gap:12px; flex-wrap:wrap; font-size:13px; margin-bottom:8px;">
+                <div><span style="color:#58a6ff;">Время:</span> ${new Date(packet.timestamp).toLocaleTimeString()}</div>
+                <div><span style="color:#58a6ff;">Адрес:</span> ${packet.address}</div>
+            </div>
+            <div style="margin-bottom:6px;">
+                <span style="color:#58a6ff;">Байты:</span>
+                <div class="byte-row">
+                    ${data.map((b, idx) => 
+                        `<span class="byte ${idx === 3 ? 'highlight' : ''}">${idx}: ${b.toString(16).padStart(2, '0')}</span>`
+                    ).join('')}
+                </div>
+            </div>
+            <div style="margin-top:6px; padding-top:6px; border-top:1px solid #30363d;">
+                <span style="color:#58a6ff;">Байт 3 (выходы):</span>
+                <span style="font-weight:bold; color:#f0f6fc; margin-left:8px;">${byte3}</span>
+                <span style="color:#8b949e; font-size:12px; margin-left:8px;">${byte3bits}</span>
+                <div style="margin-top:4px;">${bitsHtml}</div>
+            </div>
+        `;
+        container.innerHTML = html;
+    }
+
+    function clearPackets() {
+        packetLogs = [];
+        renderPacketLog();
+        document.getElementById('packetCount').textContent = 0;
+        document.getElementById('packetCountLabel').textContent = 0;
+    }
+
+    // ========================================================================
+    // 7. ПЕРЕКЛЮЧЕНИЕ ПАКЕТОВ
+    // ========================================================================
+    function togglePacketLogging() {
+        const newState = !packetLoggingEnabled;
+        sendApiRequest('debug_enable_packet_logging', { enable: newState });
+    }
+
+    function updatePacketButton() {
+        const btn = document.getElementById('packetToggleBtn');
+        if (packetLoggingEnabled) {
+            btn.textContent = '📦 Выключить пакеты';
+            btn.className = 'btn btn-sm btn-packet active';
+        } else {
+            btn.textContent = '📦 Включить пакеты';
+            btn.className = 'btn btn-sm btn-packet';
+        }
+    }
+
+    // ========================================================================
+    // 8. ВКЛАДКИ
+    // ========================================================================
+    function switchTab(tab) {
+        currentTab = tab;
+        document.getElementById('tabShort').className = 'btn btn-tab' + (tab === 'short' ? ' active' : '');
+        document.getElementById('tabFull').className = 'btn btn-tab' + (tab === 'full' ? ' active' : '');
+        document.getElementById('tabPackets').className = 'btn btn-tab' + (tab === 'packets' ? ' active' : '');
+        document.getElementById('panelShort').className = 'tab-panel' + (tab === 'short' ? '' : ' hidden');
+        document.getElementById('panelFull').className = 'tab-panel' + (tab === 'full' ? '' : ' hidden');
+        document.getElementById('panelPackets').className = 'tab-panel' + (tab === 'packets' ? '' : ' hidden');
+    }
+
+    // ========================================================================
+    // 9. ОСНОВНЫЕ ФУНКЦИИ
+    // ========================================================================
+    function loadControllers() {
+        sendApiRequest('controllers_list', {});
+    }
+
+    function loadTriggerTypes() {
+        sendApiRequest('triggers_type', {});
+    }
+
+    function onControllerChange() {
+        const key = document.getElementById('controllerSelect').value;
+        if (key) {
+            currentController = key;
+            getTriggersList();
+            requestLastPacket();
+        } else {
+            currentController = null;
+            document.getElementById('triggerListContainer').innerHTML = 
+                '<div class="empty-message">Выберите контроллер</div>';
+            document.getElementById('triggerCount').textContent = 'Триггеров: 0';
+            document.getElementById('lastPacketContainer').innerHTML = 
+                '<div class="empty-message">Нет данных</div>';
+        }
+    }
+
+    function getTriggersList() {
+        if (!currentController) {
+            showStatus('Выберите контроллер', 'error');
+            return;
+        }
+        sendApiRequest('debug_state', { controller: currentController });
+        showStatus('📋 Получение списка триггеров...', 'info');
+    }
+
+    function forcePoll() {
+        if (!currentController) {
+            showStatus('Выберите контроллер', 'error');
+            return;
+        }
+        sendApiRequest('debug_poll', { controller: currentController });
+        showStatus('📡 Опрос отправлен', 'info');
+    }
+
+    function toggleDebug() {
+        if (debugMode) {
+            sendApiRequest('debug_stop', {});
+        } else {
+            sendApiRequest('debug_start', {});
+            showStatus('🐛 Отладка включена (пакеты не логируются)', 'debug');
+        }
+    }
+
+    function clearLog() {
+        allLogs = [];
+        shortLogs = [];
+        packetLogs = [];
+        renderFullLog();
+        renderShortLog();
+        renderPacketLog();
+        document.getElementById('shortCount').textContent = '0';
+        document.getElementById('fullCount').textContent = '0';
+        document.getElementById('packetCount').textContent = '0';
+        document.getElementById('packetCountLabel').textContent = '0';
+        sendApiRequest('debug_clear', {});
+        showStatus('Лог очищен', 'info');
+    }
+
+    function refreshLog() {
+        sendApiRequest('debug_log', {});
+        showStatus('Обновление лога...', 'info');
+    }
+
+    function requestLastPacket() {
+        if (!currentController) {
+            showStatus('Выберите контроллер', 'error');
+            return;
+        }
+        sendApiRequest('debug_get_last_packet', { controller: currentController });
+    }
+
+    function sendCommand(command) {
+        if (!currentController) {
+            showStatus('Выберите контроллер', 'error');
+            return;
+        }
+        // ===== ИСПРАВЛЕНИЕ: используем parseFloat для поддержки дробных значений =====
+        const interval = parseFloat(document.getElementById('commandInterval').value);
+        const finalInterval = (isNaN(interval) || interval <= 0) ? 2 : interval;
+        document.getElementById('commandResult').innerHTML = `<div style="color:#d29922;">⏳ Отправка ${command}...</div>`;
+        sendApiRequest('debug_send_command', {
+            controller: currentController,
+            command: command,
+            interval: finalInterval
+        });
+    }
+
+    // ========================================================================
+    // 10. УПРАВЛЕНИЕ ТРИГГЕРАМИ
+    // ========================================================================
+    function onTriggerTypeChange() {
+        const type = document.getElementById('triggerTypeSelect').value;
+        const isAnalog = type && (type.startsWith('va_') || type.startsWith('v_'));
+        const isState = type && (type.startsWith('tm_') || type.startsWith('exit_'));
+        
+        if (isState) {
+            document.getElementById('sostGroup').style.display = 'block';
+            document.getElementById('minGroup').style.display = 'none';
+            document.getElementById('maxGroup').style.display = 'none';
+            document.getElementById('devGroup').style.display = 'none';
+            if (type) {
+                const num = parseInt(type.split('_')[1]);
+                if (!isNaN(num)) document.getElementById('triggerSost').value = num;
+            }
+            document.querySelector('label[for="triggerSost"]').textContent = 'Значение (0-3)';
+            return;
+        }
+        
+        if (isAnalog) {
+            document.getElementById('sostGroup').style.display = 'none';
+            document.getElementById('minGroup').style.display = 'block';
+            document.getElementById('maxGroup').style.display = 'block';
+            document.getElementById('devGroup').style.display = 'block';
+            document.querySelector('label[for="triggerSost"]').textContent = 'Sost';
+            return;
+        }
+        
+        document.getElementById('sostGroup').style.display = 'block';
+        document.getElementById('minGroup').style.display = 'none';
+        document.getElementById('maxGroup').style.display = 'none';
+        document.getElementById('devGroup').style.display = 'none';
+        document.querySelector('label[for="triggerSost"]').textContent = 'Sost';
+    }
+
+    function addTrigger() {
+        if (!currentController) {
+            showStatus('Выберите контроллер', 'error');
+            return;
+        }
+
+        const type = document.getElementById('triggerTypeSelect').value;
+        if (!type) {
+            showStatus('Выберите тип триггера', 'error');
+            return;
+        }
+
+        const params = { controller: currentController, type: type };
+        
+        if (type.startsWith('va_') || type.startsWith('v_')) {
+            const min = parseFloat(document.getElementById('triggerMin').value);
+            const max = parseFloat(document.getElementById('triggerMax').value);
+            const dev = parseFloat(document.getElementById('triggerDev').value);
+            if (isNaN(min) || isNaN(max) || isNaN(dev)) {
+                showStatus('Введите корректные значения', 'error');
+                return;
+            }
+            params.min = min;
+            params.max = max;
+            params.dev = dev;
+        } else if (type.startsWith('tm_') || type.startsWith('exit_')) {
+            const sost = parseInt(document.getElementById('triggerSost').value);
+            if (isNaN(sost) || sost < 0 || sost > 3) {
+                showStatus('Введите корректное значение sost (0-3)', 'error');
+                return;
+            }
+            params.sost = sost;
+        } else {
+            const sost = parseInt(document.getElementById('triggerSost').value);
+            if (isNaN(sost)) {
+                showStatus('Введите корректное значение sost', 'error');
+                return;
+            }
+            params.sost = sost;
+        }
+
+        document.getElementById('triggerAddResult').innerHTML = 
+            '<div style="color:#d29922;">⏳ Добавление...</div>';
+        
+        sendApiRequest('trigger_add', params);
+    }
+
+    function removeTrigger(index) {
+        if (!currentController) {
+            showStatus('Выберите контроллер', 'error');
+            return;
+        }
+        if (!confirm('Удалить триггер #' + index + '?')) return;
+        sendApiRequest('trigger_dell', {
+            controller: currentController,
+            trigger_id: index
+        });
+    }
+
+    // ========================================================================
+    // 11. РЕНДЕРИНГ
+    // ========================================================================
+    function renderControllerSelect() {
+        const select = document.getElementById('controllerSelect');
+        const currentValue = select.value;
+        select.innerHTML = '<option value="">-- Выберите контроллер --</option>';
+        for (const key in controllersList) {
+            if (controllersList.hasOwnProperty(key)) {
+                const c = controllersList[key];
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = key + ' (№' + c.number + ')';
+                if (key === currentValue) option.selected = true;
+                select.appendChild(option);
+            }
+        }
+        if (currentValue && select.value !== currentValue) {
+            const keys = Object.keys(controllersList);
+            if (keys.length > 0) {
+                select.value = keys[0];
+                onControllerChange();
+            }
+        }
+    }
+
+    function renderTriggerTypeSelect() {
+        const select = document.getElementById('triggerTypeSelect');
+        const currentValue = select.value;
+        select.innerHTML = '<option value="">-- Выберите --</option>';
+        
+        const groups = {
+            'Выходы (байт 3)': ['led', 'zumm', 'sound', 'lock'],
+            'TM (байт 4)': ['tm_0', 'tm_1', 'tm_2', 'tm_3'],
+            'EXIT (байт 4)': ['exit_0', 'exit_1', 'exit_2', 'exit_3'],
+            'Входы (байт 4)': ['reader', 'door'],
+            'Аналоговые напряжения': ['v_door', 'v_led', 'v_zp', 'v_12', 'va_door', 'va_led', 'va_zp', 'va_12'],
+            'Разница аналогов': ['va_diff_12_zp']
+        };
+
+        for (const [groupName, types] of Object.entries(groups)) {
+            const existingTypes = types.filter(t => triggerTypes[t]);
+            if (existingTypes.length === 0) continue;
+            
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = groupName;
+            for (const type of existingTypes) {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = type;
+                if (type === currentValue) option.selected = true;
+                optgroup.appendChild(option);
+            }
+            select.appendChild(optgroup);
+        }
+    }
+
+    function renderTriggersList(triggers) {
+        const container = document.getElementById('triggerListContainer');
+        
+        if (!triggers || triggers.length === 0) {
+            container.innerHTML = '<div class="empty-message">Нет триггеров</div>';
+            return;
+        }
+
+        let html = '';
+        for (let i = 0; i < triggers.length; i++) {
+            const tr = triggers[i];
+            let params = '';
+            if (tr.sost !== undefined) params += 'sost:' + tr.sost + ' ';
+            if (tr.min !== undefined) params += 'min:' + tr.min + ' ';
+            if (tr.max !== undefined) params += 'max:' + tr.max + ' ';
+            if (tr.dev !== undefined) params += 'dev:' + tr.dev;
+            
+            html += '<div class="trigger-item">';
+            html += '    <div class="info">';
+            html += '        <span class="type">' + tr.type + '</span>';
+            html += '        <span class="params">byte:' + tr.byte_num + ' ' + params + '</span>';
+            html += '    </div>';
+            html += '    <div class="actions">';
+            html += '        <button class="del-btn" onclick="removeTrigger(' + i + ')">✕</button>';
+            html += '    </div>';
+            html += '</div>';
+        }
+        container.innerHTML = html;
+    }
+
+    function updateTriggersList() {
+        if (currentController) {
+            getTriggersList();
+        }
+    }
+
+    // ========================================================================
+    // 12. ИНДИКАТОРЫ
+    // ========================================================================
+    function updateDebugIndicator() {
+        const indicator = document.getElementById('debugIndicator');
+        const toggleBtn = document.getElementById('debugToggleBtn');
+        
+        if (debugMode) {
+            indicator.className = 'debug-indicator on';
+            indicator.textContent = '🐛 Отладка ВКЛЮЧЕНА';
+            toggleBtn.textContent = '🐛 Выключить';
+            toggleBtn.className = 'btn btn-debug active';
+            statusDot.className = 'status-dot debug';
+            statusText.textContent = 'Режим отладки';
+        } else {
+            indicator.className = 'debug-indicator off';
+            indicator.textContent = '🐛 Отладка выключена';
+            toggleBtn.textContent = '🐛 Включить';
+            toggleBtn.className = 'btn btn-debug';
+            statusDot.className = 'status-dot connected';
+            statusText.textContent = 'Подключено';
+        }
+    }
+
+    // ========================================================================
+    // 13. ЗАПУСК
+    // ========================================================================
+    connectWebSocket();
+    
+    setInterval(function() {
+        if (isConnected) {
+            loadControllers();
+        }
+    }, 30000);
+</script>
+</body>
+</html>

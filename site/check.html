@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление проверками</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0d1117; color: #c9d1d9; min-height: 100vh; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; background: #161b22; border-radius: 16px; padding: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+        header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px; border-bottom: 1px solid #30363d; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+        header h1 { font-size: 24px; font-weight: 600; color: #f0f6fc; }
+        .status { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #8b949e; }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; transition: background 0.3s; }
+        .status-dot.connected { background: #3fb950; box-shadow: 0 0 8px rgba(63,185,80,0.4); }
+        .status-dot.disconnected { background: #f85149; box-shadow: 0 0 8px rgba(248,81,73,0.4); }
+        
+        .panel { background: #0d1117; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+        .panel h2 { font-size: 16px; font-weight: 500; color: #f0f6fc; margin-bottom: 12px; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        
+        .btn { padding: 6px 14px; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.25s; }
+        .btn-primary { background: #1f6feb; color: #fff; }
+        .btn-primary:hover { background: #388bfd; }
+        .btn-success { background: #238636; color: #fff; }
+        .btn-success:hover { background: #2ea043; }
+        .btn-danger { background: #da3633; color: #fff; }
+        .btn-danger:hover { background: #f85149; }
+        .btn-warning { background: #d29922; color: #fff; }
+        .btn-warning:hover { background: #e3b341; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+        .btn-outline { background: transparent; border: 1px solid #30363d; color: #c9d1d9; }
+        .btn-outline:hover { background: #30363d; }
+        .btn-copy { background: #6f42c1; color: #fff; }
+        .btn-copy:hover { background: #8b5cf6; }
+        .btn-xs { padding: 2px 6px; font-size: 11px; }
+        
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 500; color: #8b949e; margin-bottom: 4px; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px 12px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; color: #f0f6fc; font-size: 14px; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #58a6ff; }
+        .form-group textarea { resize: vertical; min-height: 60px; font-family: 'Consolas', monospace; }
+        .form-row { display: flex; flex-wrap: wrap; gap: 12px; }
+        .form-row .form-group { flex: 1; min-width: 150px; }
+        .form-row .form-group.small { flex: 0 0 auto; min-width: 80px; }
+        
+        .status-bar { padding: 10px 16px; border-radius: 8px; margin-bottom: 12px; }
+        .status-bar.info { background: #0d1f3c; color: #58a6ff; border: 1px solid #1f6feb; }
+        .status-bar.success { background: #0d1f1a; color: #3fb950; border: 1px solid #238636; }
+        .status-bar.error { background: #1f0d0d; color: #f85149; border: 1px solid #da3633; }
+        .status-bar.warning { background: #1f1f0d; color: #d29922; border: 1px solid #d29922; }
+        
+        .three-columns { display: flex; gap: 20px; }
+        .three-columns .left { flex: 0 0 250px; }
+        .three-columns .center { flex: 1; }
+        .three-columns .right { flex: 0 0 250px; }
+        
+        .check-list { max-height: 70vh; overflow-y: auto; }
+        .check-list .check-item { padding: 10px 14px; border-bottom: 1px solid #21262d; cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; }
+        .check-list .check-item:hover { background: #161b22; }
+        .check-list .check-item.active { background: #0d1f3c; border-left: 3px solid #58a6ff; }
+        .check-list .check-item .check-name { color: #f0f6fc; font-weight: 500; }
+        .check-list .check-item .check-actions { display: flex; gap: 4px; }
+        
+        .view-toggle { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+        .view-toggle button { padding: 4px 16px; border: 1px solid #30363d; background: transparent; color: #8b949e; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+        .view-toggle button.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+        .view-toggle button:hover:not(.active) { background: #21262d; }
+        
+        .state-item { 
+            background: #161b22; 
+            padding: 8px 12px; 
+            border-radius: 6px; 
+            margin-bottom: 4px; 
+            border-left: 3px solid #58a6ff; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            flex-wrap: wrap; 
+            gap: 6px; 
+        }
+        .state-item .state-info { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 4px 12px; 
+            font-size: 13px; 
+            align-items: center;
+        }
+        .state-item .state-info .cmd { 
+            color: #58a6ff; 
+            font-weight: 600; 
+        }
+        .state-item .state-info .data { 
+            color: #3fb950; 
+        }
+        .state-item .state-actions { 
+            display: flex; 
+            gap: 4px; 
+        }
+        .state-item .state-actions button { 
+            background: none; 
+            border: none; 
+            cursor: pointer; 
+            font-size: 13px; 
+            padding: 0 4px; 
+        }
+        .state-item .state-actions .del-btn { 
+            color: #f85149; 
+        }
+        .state-item .state-actions .del-btn:hover { 
+            color: #ff7b72; 
+        }
+        
+        .inherited-alias { 
+            color: #8b949e; 
+            font-size: 13px; 
+            padding: 6px 10px; 
+            background: #0d1117; 
+            border-radius: 4px; 
+            border: 1px solid #30363d; 
+            margin-bottom: 4px; 
+        }
+        .inherited-alias .alias-name { 
+            color: #58a6ff; 
+        }
+        .inherited-alias .alias-type { 
+            color: #d29922; 
+            font-size: 11px; 
+        }
+        .inherited-alias .alias-target { 
+            color: #8b949e; 
+            font-size: 12px; 
+        }
+        
+        .command-select-row { 
+            display: flex; 
+            gap: 8px; 
+            align-items: flex-end; 
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .command-select-row .form-group { 
+            flex: 1; 
+            min-width: 120px; 
+            margin-bottom: 0; 
+        }
+        .command-select-row .form-group select,
+        .command-select-row .form-group input { 
+            padding: 6px 10px; 
+            font-size: 13px; 
+            width: 100%;
+        }
+        .command-select-row .form-group.small { 
+            flex: 0 0 auto; 
+            min-width: 80px; 
+        }
+        .command-select-row .btn { 
+            padding: 6px 14px; 
+            font-size: 13px; 
+            align-self: flex-end; 
+        }
+        
+        .commands-list-container { max-height: 250px; overflow-y: auto; }
+        
+        .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; }
+        .badge-ok { background: #1a7f37; color: #d4edda; }
+        .badge-no { background: #7a1f1f; color: #f8d7da; }
+        .badge-info { background: #1a3d7a; color: #d1ecf1; }
+        
+        .empty-message { color: #8b949e; text-align: center; padding: 20px 0; }
+        
+        .right-panel .btn { width: 100%; margin-bottom: 6px; }
+        .right-panel .btn:last-child { margin-bottom: 0; }
+        
+        .test-order-list { 
+            max-height: 300px; 
+            overflow-y: auto; 
+            background: #0d1117; 
+            border-radius: 6px; 
+            border: 1px solid #30363d; 
+            padding: 4px;
+        }
+        .test-order-item { 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            padding: 6px 10px; 
+            border-bottom: 1px solid #21262d; 
+            gap: 8px;
+        }
+        .test-order-item:last-child { border-bottom: none; }
+        .test-order-item .order-num { 
+            color: #8b949e; 
+            font-size: 12px; 
+            min-width: 30px; 
+            text-align: center;
+        }
+        .test-order-item .test-name { 
+            flex: 1; 
+            color: #f0f6fc; 
+            font-size: 13px;
+        }
+        .test-order-item .test-result { 
+            font-size: 12px; 
+            margin-right: 8px;
+        }
+        .test-order-item .order-actions { 
+            display: flex; 
+            gap: 2px; 
+        }
+        .test-order-item .order-actions button { 
+            background: none; 
+            border: 1px solid #30363d; 
+            border-radius: 4px; 
+            color: #8b949e; 
+            cursor: pointer; 
+            padding: 2px 6px; 
+            font-size: 12px; 
+            transition: all 0.2s;
+        }
+        .test-order-item .order-actions button:hover { 
+            background: #21262d; 
+            color: #f0f6fc; 
+        }
+        .test-order-item .order-actions button:disabled { 
+            opacity: 0.3; 
+            cursor: not-allowed; 
+        }
+        .test-order-item .order-actions .del-btn { 
+            color: #f85149; 
+            border-color: #f85149;
+        }
+        .test-order-item .order-actions .del-btn:hover { 
+            background: #f85149; 
+            color: #fff; 
+        }
+        
+        .add-test-row { 
+            display: flex; 
+            gap: 8px; 
+            align-items: flex-end; 
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .add-test-row .form-group { 
+            flex: 1; 
+            min-width: 150px; 
+            margin-bottom: 0; 
+        }
+        .add-test-row .form-group select { 
+            padding: 6px 10px; 
+            font-size: 13px; 
+            width: 100%;
+        }
+        .add-test-row .btn { 
+            padding: 6px 14px; 
+            font-size: 13px; 
+            align-self: flex-end; 
+        }
+        
+        .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn-row .btn { flex: 1; min-width: 100px; text-align: center; }
+        
+        @media (max-width: 1024px) {
+            .three-columns { flex-direction: column; }
+            .three-columns .left { flex: 1; }
+            .three-columns .right { flex: 1; }
+        }
+        @media (max-width: 768px) {
+            .three-columns { flex-direction: column; }
+            .three-columns .left { flex: 1; }
+            .three-columns .right { flex: 1; }
+            .form-row .form-group { min-width: 100%; }
+            .command-select-row { flex-wrap: wrap; }
+            .command-select-row .form-group { min-width: 100%; }
+            .command-select-row .form-group.small { flex: 1; min-width: 80px; }
+            .add-test-row { flex-wrap: wrap; }
+            .add-test-row .form-group { min-width: 100%; }
+            .test-order-item { flex-wrap: wrap; }
+            .btn-row { flex-direction: column; }
+            .btn-row .btn { flex: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>✅ Управление проверками</h1>
+            <div class="status">
+                <span class="status-dot disconnected" id="statusDot"></span>
+                <span id="statusText">Отключено</span>
+            </div>
+        </header>
+
+        <div id="statusBar" class="status-bar info">Загрузка данных...</div>
+
+        <div class="three-columns">
+            <!-- Левая колонка - список проверок -->
+            <div class="left">
+                <div class="panel">
+                    <div class="flex-between">
+                        <h2>📋 Проверки</h2>
+                        <div class="btn-row" style="flex:1;justify-content:flex-end;">
+                            <button class="btn btn-success btn-sm" onclick="createCheck()" id="newCheckBtn" disabled>➕ Новая</button>
+                            <button class="btn btn-copy btn-sm" onclick="copyCheck()" id="copyCheckBtn" disabled>📋 Копировать</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Выберите стенд</label>
+                        <select id="standSelect" onchange="onStandChange()">
+                            <option value="">-- Выберите стенд --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Выберите группу</label>
+                        <select id="groupSelect" onchange="onGroupChange()" disabled>
+                            <option value="">-- Сначала выберите стенд --</option>
+                        </select>
+                    </div>
+                    <div id="checkList" class="check-list">
+                        <div class="empty-message">Выберите группу</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Центральная колонка - редактирование -->
+            <div class="center">
+                <div class="panel">
+                    <div class="flex-between">
+                        <h2 id="editTitle">📝 Выберите проверку для редактирования</h2>
+                    </div>
+                    <div id="editContent">
+                        <div class="empty-message">Выберите проверку из списка слева</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Правая колонка - кнопки управления -->
+            <div class="right">
+                <div class="panel right-panel">
+                    <h2>⚙️ Управление</h2>
+                    <button class="btn btn-success" onclick="saveCheck()" id="saveBtn" disabled>💾 Сохранить</button>
+                    <button class="btn btn-danger" onclick="deleteCurrentCheck()" id="deleteBtn" disabled>🗑️ Удалить проверку</button>
+                    <button class="btn btn-warning" onclick="switchView('main')" id="mainViewBtn">📝 Основное</button>
+                    <button class="btn btn-primary" onclick="switchView('commands')" id="commandsViewBtn">⚡ Команды (<span id="commandCount">0</span>)</button>
+                    <button class="btn btn-info" onclick="switchView('tests')" id="testsViewBtn">📋 Тесты (<span id="testOrderCount">0</span>)</button>
+                    <button class="btn btn-outline" onclick="loadChecks()">🔄 Обновить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========================================================================
+        // 1. КОНСТАНТЫ И ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+        // ========================================================================
+        const WS_API_KEY = '1356_api';
+        let ws = null;
+        let isConnected = false;
+        let standsList = [];
+        let groupsList = [];
+        let currentStand = null;
+        let currentGroup = null;
+        let currentCheck = null;
+        let checksList = [];
+        let aliasMap = {};
+        let currentView = 'main';
+        let isRendering = false;
+        let currentStandName = '';
+        let currentGroupName = '';
+        let testOrder = []; // Массив имён тестов в порядке выполнения
+        let availableTests = []; // Все доступные тесты в папке
+
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const statusBar = document.getElementById('statusBar');
+
+        // Сохраняем последние значения полей команд
+        let lastCommandAlias = '';
+        let lastCommandData = '2';
+
+        // ========================================================================
+        // 2. WEB SOCKET
+        // ========================================================================
+        function showStatus(msg, type = 'info') {
+            statusBar.textContent = msg;
+            statusBar.className = 'status-bar ' + type;
+        }
+
+        function connectWebSocket() {
+            const host = window.location.hostname;
+            const wsUrl = `ws://${host}:9090`;
+            try {
+                ws = new WebSocket(wsUrl);
+                ws.onopen = function() {
+                    isConnected = true;
+                    statusDot.className = 'status-dot connected';
+                    statusText.textContent = 'Подключено';
+                    showStatus('Соединение установлено', 'success');
+                    loadStands();
+                };
+                ws.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        console.log('WS получено:', data);
+                        handleIncomingMessage(data);
+                    } catch (e) {
+                        console.error('Ошибка парсинга:', e);
+                    }
+                };
+                ws.onclose = function() {
+                    isConnected = false;
+                    statusDot.className = 'status-dot disconnected';
+                    statusText.textContent = 'Отключено';
+                    showStatus('Соединение потеряно', 'error');
+                    setTimeout(connectWebSocket, 3000);
+                };
+                ws.onerror = function(error) {
+                    console.error('WebSocket ошибка:', error);
+                };
+            } catch (e) {
+                console.error('Ошибка подключения:', e);
+                setTimeout(connectWebSocket, 3000);
+            }
+        }
+
+        function sendApiRequest(api, params = {}) {
+            if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) {
+                console.warn('WebSocket не подключен');
+                return false;
+            }
+            const message = { api_key: WS_API_KEY, api: api, ...params };
+            ws.send(JSON.stringify(message));
+            return true;
+        }
+
+        // ========================================================================
+        // 3. ОБРАБОТКА ВХОДЯЩИХ СООБЩЕНИЙ
+        // ========================================================================
+        function handleIncomingMessage(data) {
+            if (data.stands) {
+                standsList = data.stands;
+                renderStandSelect();
+                return;
+            }
+
+            if (data.stand) {
+                currentStand = data.stand;
+                aliasMap = data.stand.alias || {};
+                groupsList = [];
+                if (data.stand.groups) {
+                    groupsList = data.stand.groups;
+                }
+                renderGroupSelect();
+                return;
+            }
+
+            if (data.group) {
+                currentGroup = data.group;
+                checksList = [];
+                if (data.group.checks_list) {
+                    checksList = data.group.checks_list;
+                }
+                renderCheckList();
+                document.getElementById('newCheckBtn').disabled = false;
+                document.getElementById('copyCheckBtn').disabled = false;
+                return;
+            }
+
+            if (data.check) {
+                currentCheck = data.check;
+                testOrder = data.check.tests || [];
+                renderEditForm(data.check);
+                document.getElementById('saveBtn').disabled = false;
+                document.getElementById('deleteBtn').disabled = false;
+                return;
+            }
+
+            if (data.api === 'check_save' || data.api === 'check_delete') {
+                if (data.ok) {
+                    showStatus(data.info || 'Операция выполнена', 'success');
+                    loadChecks();
+                } else {
+                    showStatus('Ошибка: ' + (data.info || 'неизвестная'), 'error');
+                }
+                return;
+            }
+
+            if (data.api === 'copy_check') {
+                if (data.ok) {
+                    showStatus(data.info || 'Проверка скопирована', 'success');
+                    loadChecks();
+                } else {
+                    showStatus('Ошибка копирования: ' + (data.info || 'неизвестная'), 'error');
+                }
+                return;
+            }
+
+            if (data.info === 'wrong api' || data.info === 'wrong api_key') {
+                showStatus('Ошибка API: ' + data.info, 'error');
+                return;
+            }
+        }
+
+        // ========================================================================
+        // 4. ЗАГРУЗКА ДАННЫХ
+        // ========================================================================
+        function loadStands() {
+            sendApiRequest('stands_list', {});
+        }
+
+        function loadChecks() {
+            const stand = document.getElementById('standSelect').value;
+            const group = document.getElementById('groupSelect').value;
+            if (stand && group) {
+                currentStandName = stand;
+                currentGroupName = group;
+                sendApiRequest('group_get', { stand_name: stand, group_name: group });
+            }
+        }
+
+        function loadCheckData(standName, groupName, checkName) {
+            if (standName && groupName && checkName) {
+                currentStandName = standName;
+                currentGroupName = groupName;
+                sendApiRequest('check_get', {
+                    stand_name: standName,
+                    group_name: groupName,
+                    check_name: checkName
+                });
+            }
+        }
+
+        // ========================================================================
+        // 5. РЕНДЕРИНГ
+        // ========================================================================
+        function renderStandSelect() {
+            const select = document.getElementById('standSelect');
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">-- Выберите стенд --</option>';
+            for (const s of standsList) {
+                const option = document.createElement('option');
+                option.value = s.path;
+                option.textContent = s.name;
+                if (s.path === currentValue) option.selected = true;
+                select.appendChild(option);
+            }
+            if (currentValue && select.value !== currentValue) {
+                if (standsList.length > 0) {
+                    select.value = standsList[0].path;
+                    onStandChange();
+                }
+            }
+        }
+
+        function renderGroupSelect() {
+            const select = document.getElementById('groupSelect');
+            select.innerHTML = '<option value="">-- Выберите группу --</option>';
+            if (currentStand && currentStand.groups) {
+                for (const g of currentStand.groups) {
+                    const option = document.createElement('option');
+                    option.value = g.path;
+                    option.textContent = g.name;
+                    select.appendChild(option);
+                }
+            }
+            select.disabled = false;
+            document.getElementById('checkList').innerHTML = '<div class="empty-message">Выберите группу</div>';
+            document.getElementById('newCheckBtn').disabled = true;
+            document.getElementById('copyCheckBtn').disabled = true;
+        }
+
+        function renderCheckList() {
+            const container = document.getElementById('checkList');
+            if (!checksList || checksList.length === 0) {
+                container.innerHTML = '<div class="empty-message">Нет проверок</div>';
+                return;
+            }
+            let html = '';
+            for (const c of checksList) {
+                const isActive = currentCheck && currentCheck.name === c.name;
+                html += `<div class="check-item${isActive ? ' active' : ''}" onclick="selectCheck('${c.path}')">`;
+                html += `    <span class="check-name">${c.name}</span>`;
+                html += `    <div class="check-actions">`;
+                html += `        <span style="font-size:11px;color:#8b949e;margin-right:8px;">${c.testCount || 0} тестов</span>`;
+                html += `        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteCheck('${c.path}')">🗑️</button>`;
+                html += `    </div>`;
+                html += '</div>';
+            }
+            container.innerHTML = html;
+        }
+
+        function switchView(view) {
+            currentView = view;
+            document.getElementById('mainViewBtn').className = 'btn' + (view === 'main' ? ' btn-warning' : ' btn-outline');
+            document.getElementById('commandsViewBtn').className = 'btn' + (view === 'commands' ? ' btn-primary' : ' btn-outline');
+            document.getElementById('testsViewBtn').className = 'btn' + (view === 'tests' ? ' btn-info' : ' btn-outline');
+            if (currentCheck) {
+                renderEditForm(currentCheck);
+            }
+        }
+
+        function renderEditForm(check) {
+            isRendering = true;
+            const container = document.getElementById('editContent');
+            const isNew = !check || !check.name;
+
+            if (!check) {
+                container.innerHTML = '<div class="empty-message">Выберите проверку из списка слева</div>';
+                document.getElementById('editTitle').textContent = '📝 Выберите проверку для редактирования';
+                isRendering = false;
+                return;
+            }
+
+            const initialState = check.initial_state || [];
+            const testOrder = check.tests || [];
+            document.getElementById('commandCount').textContent = initialState.length;
+            document.getElementById('testOrderCount').textContent = testOrder.length;
+
+            let html = '';
+
+            // Вкладки
+            html += '<div class="view-toggle">';
+            html += '    <button class="btn ' + (currentView === 'main' ? 'btn-warning' : 'btn-outline') + '" onclick="switchView(\'main\')">📝 Основное</button>';
+            html += '    <button class="btn ' + (currentView === 'commands' ? 'btn-primary' : 'btn-outline') + '" onclick="switchView(\'commands\')">⚡ Команды (' + initialState.length + ')</button>';
+            html += '    <button class="btn ' + (currentView === 'tests' ? 'btn-info' : 'btn-outline') + '" onclick="switchView(\'tests\')">📋 Тесты (' + testOrder.length + ')</button>';
+            html += '</div>';
+
+            if (currentView === 'main') {
+                // Основная информация
+                html += '<div class="form-group">';
+                html += '    <label>Название проверки *</label>';
+                html += '    <input type="text" id="checkName" value="' + (check.name || '') + '" placeholder="Введите название">';
+                html += '</div>';
+                html += '<div class="form-group">';
+                html += '    <label>Описание</label>';
+                html += '    <textarea id="checkDescription" rows="2" placeholder="Описание проверки">' + (check.description || '') + '</textarea>';
+                html += '</div>';
+
+                // Наследуемые алиасы (только для просмотра)
+                html += '<div class="form-group">';
+                html += '    <label>Наследуемые алиасы (из стенда) <span style="color:#8b949e;font-weight:400;font-size:12px;">— только для просмотра</span></label>';
+                html += '    <div style="max-height:150px;overflow-y:auto;padding:4px;background:#0d1117;border-radius:6px;border:1px solid #30363d;">';
+                const aliasKeys = Object.keys(aliasMap);
+                if (aliasKeys.length === 0) {
+                    html += '    <div style="color:#8b949e;font-size:13px;padding:4px;">Нет алиасов</div>';
+                } else {
+                    for (const key of aliasKeys) {
+                        const val = aliasMap[key];
+                        const type = val.type || 'command';
+                        const target = val.command || val.trigger || '';
+                        html += `<div class="inherited-alias">
+                            <span class="alias-name">${key}</span>
+                            <span class="alias-type">${type === 'command' ? '⚡ команда' : '🔔 триггер'}</span>
+                            <span class="alias-target">→ ${target}</span>
+                            ${val.controller ? `<span style="color:#8b949e;font-size:11px;">контроллер: ${val.controller}</span>` : ''}
+                        </div>`;
+                    }
+                }
+                html += '    </div>';
+                html += '</div>';
+            } else if (currentView === 'commands') {
+                // Вкладка Команды (исходное состояние)
+                html += renderCommandsTab(check);
+            } else {
+                // Вкладка Тесты (порядок выполнения)
+                html += renderTestsTab(check);
+            }
+
+            container.innerHTML = html;
+            document.getElementById('editTitle').textContent = isNew ? '📝 Новая проверка' : '📝 ' + check.name;
+
+            isRendering = false;
+        }
+
+        function renderCommandsTab(check) {
+            const initialState = check.initial_state || [];
+            
+            // Получаем только алиасы-команды
+            const aliasCommands = {};
+            for (const key in aliasMap) {
+                if (aliasMap[key].type === 'command') {
+                    aliasCommands[key] = aliasMap[key];
+                }
+            }
+
+            let html = '';
+
+            // Строка выбора команды
+            html += '<div class="command-select-row">';
+            html += '    <div class="form-group">';
+            html += '        <label>Алиас-команда</label>';
+            html += '        <select id="addCommandSelect" style="font-size:13px;padding:6px 10px;">';
+            html += '            <option value="">-- Выберите команду --</option>';
+            const existingCommands = initialState.map(c => c.command);
+            for (const key in aliasCommands) {
+                if (!existingCommands.includes(key)) {
+                    const val = aliasCommands[key];
+                    const target = val.command || key;
+                    html += `            <option value="${key}" ${lastCommandAlias === key ? 'selected' : ''}>${key} → ${target}</option>`;
+                }
+            }
+            if (Object.keys(aliasCommands).length === 0) {
+                html += '            <option value="" disabled>Нет алиасов-команд в стенде</option>';
+            }
+            html += '        </select>';
+            html += '    </div>';
+            html += '    <div class="form-group small">';
+            html += '        <label>Data</label>';
+            html += '        <input type="number" id="addCommandData" value="' + lastCommandData + '" step="0.1" style="font-size:13px;padding:6px 10px;">';
+            html += '    </div>';
+            html += '    <button class="btn btn-sm btn-primary" onclick="addCommand()">➕ Добавить</button>';
+            html += '</div>';
+
+            // Список добавленных команд
+            html += '<div class="commands-list-container">';
+            if (initialState.length === 0) {
+                html += '<div style="color:#8b949e;font-size:13px;padding:8px;text-align:center;">Нет добавленных команд</div>';
+            } else {
+                for (let i = 0; i < initialState.length; i++) {
+                    const cmd = initialState[i];
+                    const data = cmd.data !== undefined ? cmd.data : 2;
+                    html += `<div class="state-item">
+                        <div class="state-info">
+                            <span class="cmd">${cmd.command}</span>
+                            <span class="data">data: ${Number(data).toFixed(1)}</span>
+                        </div>
+                        <div class="state-actions">
+                            <button class="del-btn" onclick="removeCommand(${i})">✕</button>
+                        </div>
+                    </div>`;
+                }
+            }
+            html += '</div>';
+
+            return html;
+        }
+
+        function renderTestsTab(check) {
+            const testOrder = check.tests || [];
+            
+            // Получаем список всех доступных тестов из папки
+            // Для этого нужно получить список файлов из папки tests
+            // Используем данные из check.tests_list
+            const allTests = [];
+            if (check.tests_list) {
+                for (const t of check.tests_list) {
+                    allTests.push(t.name);
+                }
+            }
+
+            let html = '';
+
+            // Строка добавления теста
+            html += '<div class="add-test-row">';
+            html += '    <div class="form-group">';
+            html += '        <label>Добавить тест</label>';
+            html += '        <select id="addTestSelect" style="font-size:13px;padding:6px 10px;">';
+            html += '            <option value="">-- Выберите тест --</option>';
+            for (const name of allTests) {
+                if (!testOrder.includes(name)) {
+                    html += `            <option value="${name}">${name}</option>`;
+                }
+            }
+            if (allTests.length === 0 || testOrder.length === allTests.length) {
+                html += '            <option value="" disabled>Нет доступных тестов</option>';
+            }
+            html += '        </select>';
+            html += '    </div>';
+            html += '    <button class="btn btn-sm btn-primary" onclick="addTestToOrder()">➕ Добавить</button>';
+            html += '</div>';
+
+            // Список тестов в порядке выполнения
+            html += '<div class="test-order-list">';
+            if (testOrder.length === 0) {
+                html += '<div style="color:#8b949e;font-size:13px;padding:8px;text-align:center;">Нет добавленных тестов</div>';
+            } else {
+                for (let i = 0; i < testOrder.length; i++) {
+                    const name = testOrder[i];
+                    // Ищем результат теста
+                    let resultBadge = '';
+                    if (check.tests_list) {
+                        const testInfo = check.tests_list.find(t => t.name === name);
+                        if (testInfo && testInfo.result) {
+                            const ok = testInfo.result.order === 'ok' && testInfo.result.time === 'ok';
+                            resultBadge = `<span class="badge ${ok ? 'badge-ok' : 'badge-no'}">${ok ? '✅' : '❌'}</span>`;
+                        }
+                    }
+                    html += `<div class="test-order-item">
+                        <span class="order-num">${i + 1}</span>
+                        <span class="test-name">${name}</span>
+                        <span class="test-result">${resultBadge}</span>
+                        <div class="order-actions">
+                            <button onclick="moveTestUp(${i})" ${i === 0 ? 'disabled' : ''}>↑</button>
+                            <button onclick="moveTestDown(${i})" ${i === testOrder.length - 1 ? 'disabled' : ''}>↓</button>
+                            <button class="del-btn" onclick="removeTestFromOrder(${i})">✕</button>
+                        </div>
+                    </div>`;
+                }
+            }
+            html += '</div>';
+
+            return html;
+        }
+
+        // ========================================================================
+        // 6. УПРАВЛЕНИЕ ПРОВЕРКАМИ
+        // ========================================================================
+        function onStandChange() {
+            const stand = document.getElementById('standSelect').value;
+            if (stand) {
+                currentStandName = stand;
+                sendApiRequest('stand_get', { stand_name: stand });
+                currentCheck = null;
+                document.getElementById('editContent').innerHTML = '<div class="empty-message">Выберите проверку из списка слева</div>';
+                document.getElementById('editTitle').textContent = '📝 Выберите проверку для редактирования';
+                document.getElementById('saveBtn').disabled = true;
+                document.getElementById('deleteBtn').disabled = true;
+            } else {
+                document.getElementById('groupSelect').innerHTML = '<option value="">-- Сначала выберите стенд --</option>';
+                document.getElementById('groupSelect').disabled = true;
+                document.getElementById('checkList').innerHTML = '<div class="empty-message">Выберите группу</div>';
+                document.getElementById('newCheckBtn').disabled = true;
+                document.getElementById('copyCheckBtn').disabled = true;
+            }
+        }
+
+        function onGroupChange() {
+            const stand = document.getElementById('standSelect').value;
+            const group = document.getElementById('groupSelect').value;
+            if (stand && group) {
+                currentStandName = stand;
+                currentGroupName = group;
+                sendApiRequest('group_get', { stand_name: stand, group_name: group });
+                currentCheck = null;
+                document.getElementById('editContent').innerHTML = '<div class="empty-message">Выберите проверку из списка слева</div>';
+                document.getElementById('editTitle').textContent = '📝 Выберите проверку для редактирования';
+                document.getElementById('saveBtn').disabled = true;
+                document.getElementById('deleteBtn').disabled = true;
+            }
+        }
+
+        function selectCheck(path) {
+            const stand = document.getElementById('standSelect').value;
+            const group = document.getElementById('groupSelect').value;
+            if (stand && group && path) {
+                loadCheckData(stand, group, path);
+            }
+        }
+
+        function createCheck() {
+            const stand = document.getElementById('standSelect').value;
+            const group = document.getElementById('groupSelect').value;
+            if (!stand || !group) {
+                showStatus('Выберите стенд и группу', 'error');
+                return;
+            }
+            currentCheck = { name: '', description: '', initial_state: [], tests: [] };
+            currentView = 'main';
+            document.getElementById('editTitle').textContent = '📝 Новая проверка';
+            renderEditForm(currentCheck);
+            document.getElementById('saveBtn').disabled = false;
+            document.getElementById('deleteBtn').disabled = true;
+        }
+
+        function copyCheck() {
+            const stand = document.getElementById('standSelect').value;
+            const group = document.getElementById('groupSelect').value;
+            const currentCheckName = currentCheck ? currentCheck.name : '';
+            
+            if (!stand || !group) {
+                showStatus('Выберите стенд и группу', 'error');
+                return;
+            }
+            if (!currentCheckName) {
+                showStatus('Выберите проверку для копирования', 'error');
+                return;
+            }
+
+            const newName = prompt('Введите имя для новой проверки:', currentCheckName + '_copy');
+            if (!newName) {
+                showStatus('Отменено', 'info');
+                return;
+            }
+
+            sendApiRequest('copy_check', {
+                stand_name: stand,
+                group_name: group,
+                source_name: currentCheckName,
+                new_name: newName
+            });
+            showStatus('Копирование проверки...', 'info');
+        }
+
+        function deleteCurrentCheck() {
+            if (!currentCheck || !currentCheck.name) return;
+            if (!confirm('Удалить проверку "' + currentCheck.name + '"?')) return;
+            const stand = document.getElementById('standSelect').value;
+            const group = document.getElementById('groupSelect').value;
+            sendApiRequest('check_delete', {
+                stand_name: stand,
+                group_name: group,
+                check_name: currentCheck.name
+            });
+        }
+
+        function saveCheck() {
+            const stand = document.getElementById('standSelect').value;
+            const group = document.getElementById('groupSelect').value;
+            
+            // Проверяем, на какой вкладке находимся
+            const nameEl = document.getElementById('checkName');
+            if (!nameEl) {
+                showStatus('Переключитесь на вкладку "Основное" для сохранения', 'warning');
+                switchView('main');
+                setTimeout(function() { saveCheck(); }, 100);
+                return;
+            }
+            
+            const name = nameEl.value.trim();
+            const description = document.getElementById('checkDescription').value.trim();
+
+            if (!stand || !group) {
+                showStatus('Выберите стенд и группу', 'error');
+                return;
+            }
+            if (!name) {
+                showStatus('Введите название проверки', 'error');
+                return;
+            }
+
+            // Собираем команды из currentCheck
+            const initialState = currentCheck.initial_state || [];
+            // Сохраняем порядок тестов
+            const testOrder = currentCheck.tests || [];
+
+            const checkData = {
+                name: name,
+                description: description,
+                initial_state: initialState,
+                tests: testOrder
+            };
+
+            sendApiRequest('check_save', {
+                stand_name: stand,
+                group_name: group,
+                check: checkData
+            });
+            showStatus('Сохранение проверки...', 'info');
+        }
+
+        // ========================================================================
+        // 7. УПРАВЛЕНИЕ КОМАНДАМИ
+        // ========================================================================
+        function addCommand() {
+            const select = document.getElementById('addCommandSelect');
+            const aliasName = select.value;
+            const data = parseFloat(document.getElementById('addCommandData').value);
+
+            if (!aliasName) {
+                showStatus('Выберите команду из списка', 'error');
+                return;
+            }
+            if (isNaN(data)) {
+                showStatus('Введите корректное значение data', 'error');
+                return;
+            }
+
+            if (!currentCheck) {
+                showStatus('Нет выбранной проверки', 'error');
+                return;
+            }
+            if (!currentCheck.initial_state) currentCheck.initial_state = [];
+
+            // Проверяем, есть ли уже такая команда
+            if (currentCheck.initial_state.some(c => c.command === aliasName)) {
+                showStatus('Команда уже добавлена', 'warning');
+                return;
+            }
+
+            // Сохраняем последние значения
+            lastCommandAlias = aliasName;
+            lastCommandData = String(data);
+
+            currentCheck.initial_state.push({
+                command: aliasName,
+                data: data
+            });
+
+            // Удаляем из выпадающего списка
+            const option = select.querySelector(`option[value="${aliasName}"]`);
+            if (option) option.remove();
+
+            renderEditForm(currentCheck);
+            showStatus('Команда "' + aliasName + '" добавлена', 'success');
+        }
+
+        function removeCommand(index) {
+            if (!currentCheck || !currentCheck.initial_state) return;
+            const removed = currentCheck.initial_state[index];
+            currentCheck.initial_state.splice(index, 1);
+            
+            // Возвращаем в выпадающий список
+            const select = document.getElementById('addCommandSelect');
+            if (select && removed) {
+                const option = document.createElement('option');
+                option.value = removed.command;
+                const aliasInfo = aliasMap[removed.command] || {};
+                const target = aliasInfo.command || removed.command;
+                option.textContent = removed.command + ' → ' + target;
+                select.appendChild(option);
+                
+                // Сортируем опции
+                const options = Array.from(select.options);
+                const firstOption = options.shift();
+                options.sort((a, b) => a.text.localeCompare(b.text));
+                select.innerHTML = '';
+                select.appendChild(firstOption);
+                for (const opt of options) {
+                    select.appendChild(opt);
+                }
+            }
+
+            renderEditForm(currentCheck);
+            showStatus('Команда удалена', 'success');
+        }
+
+        // ========================================================================
+        // 8. УПРАВЛЕНИЕ ПОРЯДКОМ ТЕСТОВ
+        // ========================================================================
+        function addTestToOrder() {
+            const select = document.getElementById('addTestSelect');
+            const testName = select.value;
+
+            if (!testName) {
+                showStatus('Выберите тест из списка', 'error');
+                return;
+            }
+
+            if (!currentCheck) {
+                showStatus('Нет выбранной проверки', 'error');
+                return;
+            }
+            if (!currentCheck.tests) currentCheck.tests = [];
+
+            if (currentCheck.tests.includes(testName)) {
+                showStatus('Тест уже добавлен в порядок', 'warning');
+                return;
+            }
+
+            currentCheck.tests.push(testName);
+            renderEditForm(currentCheck);
+            showStatus('Тест "' + testName + '" добавлен в порядок выполнения', 'success');
+        }
+
+        function removeTestFromOrder(index) {
+            if (!currentCheck || !currentCheck.tests) return;
+            const removed = currentCheck.tests[index];
+            currentCheck.tests.splice(index, 1);
+            renderEditForm(currentCheck);
+            showStatus('Тест "' + removed + '" удален из порядка', 'success');
+        }
+
+        function moveTestUp(index) {
+            if (!currentCheck || !currentCheck.tests || index <= 0) return;
+            const testOrder = currentCheck.tests;
+            [testOrder[index - 1], testOrder[index]] = [testOrder[index], testOrder[index - 1]];
+            renderEditForm(currentCheck);
+            showStatus('Порядок обновлен', 'success');
+        }
+
+        function moveTestDown(index) {
+            if (!currentCheck || !currentCheck.tests || index >= currentCheck.tests.length - 1) return;
+            const testOrder = currentCheck.tests;
+            [testOrder[index], testOrder[index + 1]] = [testOrder[index + 1], testOrder[index]];
+            renderEditForm(currentCheck);
+            showStatus('Порядок обновлен', 'success');
+        }
+
+        // ========================================================================
+        // 9. ЗАПУСК
+        // ========================================================================
+        connectWebSocket();
+        
+        setInterval(() => {
+            if (isConnected) {
+                loadStands();
+            }
+        }, 30000);
+    </script>
+</body>
+</html>

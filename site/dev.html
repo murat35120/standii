@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Разработчик - API отладка</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0d1117; color: #c9d1d9; min-height: 100vh; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; background: #161b22; border-radius: 16px; padding: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+        header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px; border-bottom: 1px solid #30363d; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+        header h1 { font-size: 24px; font-weight: 600; color: #f0f6fc; }
+        header .back-link { color: #58a6ff; text-decoration: none; font-size: 14px; }
+        header .back-link:hover { text-decoration: underline; }
+        .status { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #8b949e; }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; transition: background 0.3s; }
+        .status-dot.connected { background: #3fb950; box-shadow: 0 0 8px rgba(63,185,80,0.4); }
+        .status-dot.disconnected { background: #f85149; box-shadow: 0 0 8px rgba(248,81,73,0.4); }
+        .status-dot.waiting { background: #d29922; box-shadow: 0 0 8px rgba(210,153,34,0.4); animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        
+        .panel { background: #0d1117; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+        .panel h2 { font-size: 16px; font-weight: 500; color: #f0f6fc; margin-bottom: 12px; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        
+        .btn { padding: 6px 14px; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.25s; }
+        .btn-primary { background: #1f6feb; color: #fff; }
+        .btn-primary:hover { background: #388bfd; }
+        .btn-success { background: #238636; color: #fff; }
+        .btn-success:hover { background: #2ea043; }
+        .btn-danger { background: #da3633; color: #fff; }
+        .btn-danger:hover { background: #f85149; }
+        .btn-warning { background: #d29922; color: #fff; }
+        .btn-warning:hover { background: #e3b341; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+        .btn-outline { background: transparent; border: 1px solid #30363d; color: #c9d1d9; }
+        .btn-outline:hover { background: #30363d; }
+        
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 500; color: #8b949e; margin-bottom: 4px; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px 12px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; color: #f0f6fc; font-size: 14px; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #58a6ff; }
+        .form-group textarea { resize: vertical; min-height: 60px; font-family: 'Consolas', monospace; }
+        .form-row { display: flex; flex-wrap: wrap; gap: 12px; }
+        .form-row .form-group { flex: 1; min-width: 150px; }
+        
+        .status-bar { padding: 10px 16px; border-radius: 8px; margin-bottom: 12px; }
+        .status-bar.info { background: #0d1f3c; color: #58a6ff; border: 1px solid #1f6feb; }
+        .status-bar.success { background: #0d1f1a; color: #3fb950; border: 1px solid #238636; }
+        .status-bar.error { background: #1f0d0d; color: #f85149; border: 1px solid #da3633; }
+        .status-bar.warning { background: #1f1f0d; color: #d29922; border: 1px solid #d29922; }
+        .status-bar.waiting { background: #1f1f0d; color: #d29922; border: 1px solid #d29922; animation: pulse-bg 1s infinite; }
+        @keyframes pulse-bg { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        
+        .two-columns { display: flex; gap: 20px; }
+        .two-columns .left { flex: 0 0 350px; }
+        .two-columns .right { flex: 1; }
+        
+        .method-list { max-height: 70vh; overflow-y: auto; }
+        .method-item { 
+            padding: 8px 12px; 
+            border-bottom: 1px solid #21262d; 
+            cursor: pointer; 
+            transition: all 0.2s; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-left: 3px solid transparent;
+        }
+        .method-item:hover { background: #161b22; }
+        .method-item.active { 
+            background: #0d1f3c; 
+            border-left-color: #58a6ff; 
+        }
+        .method-item .method-name { 
+            color: #f0f6fc; 
+            font-weight: 500; 
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+        }
+        .method-item .method-badge { 
+            font-size: 10px; 
+            padding: 2px 8px; 
+            border-radius: 10px; 
+            background: #1a3d7a; 
+            color: #58a6ff; 
+        }
+        .method-item .method-badge.async-badge { 
+            background: #1f1f0d; 
+            color: #d29922; 
+            border: 1px solid #d29922;
+        }
+        
+        .param-row { 
+            background: #0d1117; 
+            padding: 8px 12px; 
+            border-radius: 6px; 
+            margin-bottom: 4px; 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 8px; 
+            align-items: center;
+            border: 1px solid #21262d;
+        }
+        .param-row .param-name { 
+            color: #58a6ff; 
+            font-weight: 500; 
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+            min-width: 80px;
+        }
+        .param-row .param-type { 
+            color: #8b949e; 
+            font-size: 11px; 
+            background: #161b22; 
+            padding: 0 6px; 
+            border-radius: 3px; 
+        }
+        .param-row .param-desc { 
+            color: #8b949e; 
+            font-size: 12px; 
+        }
+        .param-row input, .param-row select { 
+            flex: 1; 
+            min-width: 100px; 
+            padding: 4px 8px; 
+            background: #161b22; 
+            border: 1px solid #30363d; 
+            border-radius: 4px; 
+            color: #f0f6fc; 
+            font-size: 13px; 
+        }
+        .param-row input:focus, .param-row select:focus { 
+            outline: none; 
+            border-color: #58a6ff; 
+        }
+        
+        .response-box { 
+            background: #0d1117; 
+            border-radius: 6px; 
+            border: 1px solid #30363d; 
+            padding: 12px; 
+            min-height: 150px; 
+            max-height: 400px; 
+            overflow-y: auto; 
+            font-family: 'Consolas', monospace; 
+            font-size: 13px; 
+            white-space: pre-wrap; 
+            word-break: break-all;
+        }
+        .response-box .response-key { color: #58a6ff; }
+        .response-box .response-value { color: #f0f6fc; }
+        .response-box .response-string { color: #d29922; }
+        .response-box .response-number { color: #3fb950; }
+        .response-box .response-boolean { color: #f0883e; }
+        .response-box .response-null { color: #8b949e; }
+        .response-box .response-trigger { color: #f0883e; border-left: 2px solid #f0883e; padding-left: 8px; display: block; margin-top: 4px; }
+        
+        .response-info {
+            background: #0d1f3c;
+            border: 1px solid #1f6feb;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 8px;
+        }
+        .response-info .label { color: #8b949e; font-size: 11px; }
+        .response-info .value { color: #f0f6fc; font-family: 'Consolas', monospace; font-size: 13px; }
+        .response-info .highlight { color: #58a6ff; font-weight: bold; }
+        .response-info .state-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 4px 12px;
+            margin-top: 4px;
+        }
+        .response-info .state-grid .item {
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 4px;
+            border-bottom: 1px solid #21262d;
+        }
+        .response-info .state-grid .item .label { color: #8b949e; font-size: 12px; }
+        .response-info .state-grid .item .value { font-family: 'Consolas', monospace; font-size: 12px; }
+        
+        .method-search {
+            margin-bottom: 12px;
+        }
+        .method-search input {
+            width: 100%;
+            padding: 8px 12px;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            color: #f0f6fc;
+            font-size: 14px;
+        }
+        .method-search input:focus { outline: none; border-color: #58a6ff; }
+        
+        .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; }
+        .badge-ok { background: #1a7f37; color: #d4edda; }
+        .badge-no { background: #7a1f1f; color: #f8d7da; }
+        .badge-info { background: #1a3d7a; color: #d1ecf1; }
+        .badge-warning { background: #7a5d1f; color: #fff3cd; }
+        
+        .empty-message { color: #8b949e; text-align: center; padding: 20px 0; }
+        
+        .async-indicator {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #d29922;
+            padding: 4px 8px;
+            background: #1f1f0d;
+            border-radius: 4px;
+            border: 1px solid #d29922;
+        }
+        .async-indicator.active {
+            display: inline-flex;
+        }
+        .async-indicator .spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #d29922;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 768px) {
+            .two-columns { flex-direction: column; }
+            .two-columns .left { flex: 1; }
+            .form-row .form-group { min-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>🔧 Разработчик</h1>
+                <a href="/" class="back-link">← На главную</a>
+            </div>
+            <div class="status">
+                <span class="status-dot disconnected" id="statusDot"></span>
+                <span id="statusText">Отключено</span>
+            </div>
+        </header>
+
+        <div id="statusBar" class="status-bar info">Загрузка данных...</div>
+
+        <div class="two-columns">
+            <div class="left">
+                <div class="panel">
+                    <div class="flex-between">
+                        <h2>📡 Методы API</h2>
+                        <span id="methodsCount" style="font-size:12px;color:#8b949e;"></span>
+                    </div>
+                    <div class="method-search">
+                        <input type="text" id="methodSearch" placeholder="Поиск методов..." oninput="filterMethods()">
+                    </div>
+                    <div id="methodList" class="method-list">
+                        <div class="empty-message">Загрузка методов...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="right">
+                <div class="panel">
+                    <div class="flex-between">
+                        <h2 id="methodTitle">📝 Выберите метод</h2>
+                        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                            <span class="async-indicator" id="asyncIndicator">
+                                <span class="spinner"></span>
+                                Ожидание ответа...
+                            </span>
+                            <button class="btn btn-sm btn-success" onclick="sendRequest()" id="sendBtn" disabled>▶️ Отправить</button>
+                            <button class="btn btn-sm btn-outline" onclick="clearResponse()">🗑️ Очистить</button>
+                        </div>
+                    </div>
+                    <div id="methodContent">
+                        <div class="empty-message">Выберите метод из списка слева</div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="flex-between">
+                        <h2>📋 Ответ сервера</h2>
+                        <div style="display:flex;gap:6px;">
+                            <span id="responseTime" style="font-size:11px;color:#8b949e;"></span>
+                            <button class="btn btn-sm btn-outline" onclick="copyResponse()">📋 Копировать</button>
+                        </div>
+                    </div>
+                    <div id="responseBox" class="response-box">
+                        <div style="color:#8b949e;">Ожидание запроса...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========================================================================
+        // 1. КОНСТАНТЫ И ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+        // ========================================================================
+        var WS_API_KEY = '1356_api';
+        var ws = null;
+        var isConnected = false;
+        var currentMethod = null;
+        var allMethods = [];
+        var controllersList = {};
+        var pendingAsyncRequests = new Map();
+        var requestId = 0;
+
+        var statusDot = document.getElementById('statusDot');
+        var statusText = document.getElementById('statusText');
+        var statusBar = document.getElementById('statusBar');
+        var asyncIndicator = document.getElementById('asyncIndicator');
+
+        // Список методов API и их параметров
+        var API_METHODS = {
+            'controllers_list': {
+                params: [],
+                description: 'Получить список всех контроллеров',
+                async: false
+            },
+            'converters_list': {
+                params: [],
+                description: 'Получить список всех конвертеров',
+                async: false
+            },
+            'triggers_type': {
+                params: [],
+                description: 'Получить список типов триггеров',
+                async: false
+            },
+            'triggers_list': {
+                params: [],
+                description: 'Получить список всех триггеров',
+                async: false
+            },
+            'commands_list': {
+                params: [],
+                description: 'Получить список доступных команд',
+                async: false
+            },
+            'controllers_versions': {
+                params: [],
+                description: 'Получить версии контроллеров',
+                async: false
+            },
+            'get_cont_info': {
+                params: [
+                    { name: 'controller', type: 'string', required: true, description: 'Ключ контроллера (type_number)' }
+                ],
+                description: 'Запросить информацию о контроллере (команда 0x01)',
+                async: true
+            },
+            'get_sost': {
+                params: [
+                    { name: 'controller', type: 'string', required: true, description: 'Ключ контроллера (type_number)' }
+                ],
+                description: 'Запросить состояние контроллера (команда 0x04)',
+                async: true
+            },
+            'green': {
+                params: [
+                    { name: 'controller', type: 'string', required: true, description: 'Ключ контроллера' },
+                    { name: 'interval', type: 'number', required: false, description: 'Длительность (сек), по умолчанию 2', default: 2 }
+                ],
+                description: 'Включить зеленый свет',
+                async: false
+            },
+            'red': {
+                params: [
+                    { name: 'controller', type: 'string', required: true, description: 'Ключ контроллера' },
+                    { name: 'interval', type: 'number', required: false, description: 'Длительность (сек), по умолчанию 2', default: 2 }
+                ],
+                description: 'Включить красный свет',
+                async: false
+            },
+            'sound': {
+                params: [
+                    { name: 'controller', type: 'string', required: true, description: 'Ключ контроллера' },
+                    { name: 'interval', type: 'number', required: false, description: 'Длительность (сек), по умолчанию 2', default: 2 }
+                ],
+                description: 'Включить звук',
+                async: false
+            },
+            'lock': {
+                params: [
+                    { name: 'controller', type: 'string', required: true, description: 'Ключ контроллера' },
+                    { name: 'interval', type: 'number', required: false, description: 'Длительность (сек), по умолчанию 2', default: 2 }
+                ],
+                description: 'Управление замком',
+                async: false
+            },
+            'd0': {
+                params: [
+                    { name: 'controller', type: 'string', required: true, description: 'Ключ контроллера' },
+                    { name: 'interval', type: 'number', required: false, description: 'Длительность (сек), по умолчанию 2', default: 2 }
+                ],
+                description: 'Выдача 0 на DATA0',
+                async: false
+            },
+            'd1': {
+                params: [
+                    { name: 'controller', type: 'string', required: true, description: 'Ключ контроллера' },
+                    { name: 'interval', type: 'number', required: false, description: 'Длительность (сек), по умолчанию 2', default: 2 }
+                ],
+                description: 'Выдача 0 на DATA1',
+                async: false
+            },
+            'open_for_out': {
+                params: [
+                    { name: 'controller', type: 'string', required: true, description: 'Ключ контроллера' }
+                ],
+                description: 'Открыть выход',
+                async: false
+            },
+            'open_for_in': {
+                params: [
+                    { name: 'controller', type: 'string', required: true, description: 'Ключ контроллера' }
+                ],
+                description: 'Открыть вход',
+                async: false
+            },
+            'new_address': {
+                params: [
+                    { name: 'controller', type: 'string', required: true, description: 'Ключ контроллера' },
+                    { name: 'new_adr', type: 'number', required: true, description: 'Новый адрес' }
+                ],
+                description: 'Смена адреса контроллера',
+                async: false
+            },
+            'pattern_list': {
+                params: [
+                    { name: 'controller', type: 'string', required: true, description: 'Ключ контроллера' }
+                ],
+                description: 'Получить список паттернов контроллера',
+                async: false
+            },
+            'trigger_add': {
+                params: [
+                    { name: 'controller', type: 'string', required: true, description: 'Ключ контроллера' },
+                    { name: 'type', type: 'string', required: true, description: 'Тип триггера' },
+                    { name: 'sost', type: 'number', required: false, description: 'Состояние (для дискретных)' },
+                    { name: 'min', type: 'number', required: false, description: 'Минимум (для va_*)' },
+                    { name: 'max', type: 'number', required: false, description: 'Максимум (для va_*)' },
+                    { name: 'dev', type: 'number', required: false, description: 'Отклонение (для va_*)' }
+                ],
+                description: 'Добавить триггер на контроллер',
+                async: false
+            },
+            'trigger_dell': {
+                params: [
+                    { name: 'controller', type: 'string', required: true, description: 'Ключ контроллера' },
+                    { name: 'trigger_id', type: 'number', required: true, description: 'ID триггера' }
+                ],
+                description: 'Удалить триггер с контроллера',
+                async: false
+            },
+            'stands_list': {
+                params: [],
+                description: 'Получить список всех стендов',
+                async: false
+            },
+            'stand_get': {
+                params: [
+                    { name: 'stand_name', type: 'string', required: true, description: 'Имя стенда' }
+                ],
+                description: 'Получить информацию о стенде',
+                async: false
+            },
+            'stand_save': {
+                params: [
+                    { name: 'stand', type: 'object', required: true, description: 'Объект стенда' }
+                ],
+                description: 'Сохранить стенд',
+                async: false
+            },
+            'stand_delete': {
+                params: [
+                    { name: 'stand_name', type: 'string', required: true, description: 'Имя стенда' }
+                ],
+                description: 'Удалить стенд',
+                async: false
+            },
+            'group_get': {
+                params: [
+                    { name: 'stand_name', type: 'string', required: true, description: 'Имя стенда' },
+                    { name: 'group_name', type: 'string', required: true, description: 'Имя группы' }
+                ],
+                description: 'Получить информацию о группе',
+                async: false
+            },
+            'group_save': {
+                params: [
+                    { name: 'stand_name', type: 'string', required: true, description: 'Имя стенда' },
+                    { name: 'group', type: 'object', required: true, description: 'Объект группы' }
+                ],
+                description: 'Сохранить группу',
+                async: false
+            },
+            'group_delete': {
+                params: [
+                    { name: 'stand_name', type: 'string', required: true, description: 'Имя стенда' },
+                    { name: 'group_name', type: 'string', required: true, description: 'Имя группы' }
+                ],
+                description: 'Удалить группу',
+                async: false
+            },
+            'check_get': {
+                params: [
+                    { name: 'stand_name', type: 'string', required: true, description: 'Имя стенда' },
+                    { name: 'group_name', type: 'string', required: true, description: 'Имя группы' },
+                    { name: 'check_name', type: 'string', required: true, description: 'Имя проверки' }
+                ],
+                description: 'Получить информацию о проверке',
+                async: false
+            },
+            'check_save': {
+                params: [
+                    { name: 'stand_name', type: 'string', required: true, description: 'Имя стенда' },
+                    { name: 'group_name', type: 'string', required: true, description: 'Имя группы' },
+                    { name: 'check', type: 'object', required: true, description: 'Объект проверки' }
+                ],
+                description: 'Сохранить проверку',
+                async: false
+            },
+            'check_delete': {
+                params: [
+                    { name: 'stand_name', type: 'string', required: true, description: 'Имя стенда' },
+                    { name: 'group_name', type: 'string', required: true, description: 'Имя группы' },
+                    { name: 'check_name', type: 'string', required: true, description: 'Имя проверки' }
+                ],
+                description: 'Удалить проверку',
+                async: false
+            },
+            'test_get_data': {
+                params: [
+                    { name: 'stand_name', type: 'string', required: true, description: 'Имя стенда' },
+                    { name: 'group_name', type: 'string', required: true, description: 'Имя группы' },
+                    { name: 'check_name', type: 'string', required: true, description: 'Имя проверки' },
+                    { name: 'test_name', type: 'string', required: true, description: 'Имя теста' }
+                ],
+                description: 'Получить данные теста',
+                async: false
+            },
+            'test_save_data': {
+                params: [
+                    { name: 'stand_name', type: 'string', required: true, description: 'Имя стенда' },
+                    { name: 'group_name', type: 'string', required: true, description: 'Имя группы' },
+                    { name: 'check_name', type: 'string', required: true, description: 'Имя проверки' },
+                    { name: 'test', type: 'object', required: true, description: 'Объект теста' }
+                ],
+                description: 'Сохранить тест',
+                async: false
+            },
+            'test_delete_data': {
+                params: [
+                    { name: 'stand_name', type: 'string', required: true, description: 'Имя стенда' },
+                    { name: 'group_name', type: 'string', required: true, description: 'Имя группы' },
+                    { name: 'check_name', type: 'string', required: true, description: 'Имя проверки' },
+                    { name: 'test_name', type: 'string', required: true, description: 'Имя теста' }
+                ],
+                description: 'Удалить тест',
+                async: false
+            },
+            'test_save_standart': {
+                params: [
+                    { name: 'stand_name', type: 'string', required: true, description: 'Имя стенда' },
+                    { name: 'group_name', type: 'string', required: true, description: 'Имя группы' },
+                    { name: 'check_name', type: 'string', required: true, description: 'Имя проверки' },
+                    { name: 'test_name', type: 'string', required: true, description: 'Имя теста' }
+                ],
+                description: 'Сохранить эталон теста',
+                async: false
+            },
+            'test_run_new': {
+                params: [
+                    { name: 'stand_name', type: 'string', required: true, description: 'Имя стенда' },
+                    { name: 'group_name', type: 'string', required: true, description: 'Имя группы' },
+                    { name: 'check_name', type: 'string', required: false, description: 'Имя проверки' },
+                    { name: 'test_name', type: 'string', required: false, description: 'Имя теста' },
+                    { name: 'mode', type: 'string', required: true, description: 'Режим: group, check, test' }
+                ],
+                description: 'Запустить тест',
+                async: true
+            },
+            'test_stop': {
+                params: [],
+                description: 'Остановить текущий тест',
+                async: false
+            },
+            'test_log_get': {
+                params: [],
+                description: 'Получить лог текущего теста',
+                async: false
+            },
+            'set_speed': {
+                params: [
+                    { name: 'speed', type: 'number', required: true, description: 'Скорость (38400 или 115200)' }
+                ],
+                description: 'Установить скорость обмена',
+                async: false
+            },
+            'get_speed': {
+                params: [],
+                description: 'Получить текущую скорость обмена',
+                async: false
+            }
+        };
+
+        // ========================================================================
+        // 2. WEB SOCKET
+        // ========================================================================
+        function showStatus(msg, type) {
+            type = type || 'info';
+            statusBar.textContent = msg;
+            statusBar.className = 'status-bar ' + type;
+            if (type === 'waiting') {
+                statusDot.className = 'status-dot waiting';
+                statusText.textContent = 'Ожидание ответа...';
+                asyncIndicator.classList.add('active');
+            } else {
+                asyncIndicator.classList.remove('active');
+                if (type === 'success') {
+                    statusDot.className = 'status-dot connected';
+                    statusText.textContent = 'Подключено';
+                } else if (type === 'error') {
+                    statusDot.className = 'status-dot disconnected';
+                    statusText.textContent = 'Ошибка';
+                }
+            }
+        }
+
+        function connectWebSocket() {
+            var host = window.location.hostname;
+            var wsUrl = 'ws://' + host + ':9090';
+            try {
+                ws = new WebSocket(wsUrl);
+                ws.onopen = function() {
+                    isConnected = true;
+                    statusDot.className = 'status-dot connected';
+                    statusText.textContent = 'Подключено';
+                    showStatus('Соединение установлено', 'success');
+                    loadMethods();
+                    sendApiRequest('controllers_list', {});
+                };
+                ws.onmessage = function(event) {
+                    try {
+                        var data = JSON.parse(event.data);
+                        console.log('WS получено:', data);
+                        handleIncomingMessage(data);
+                    } catch (e) {
+                        console.error('Ошибка парсинга:', e);
+                    }
+                };
+                ws.onclose = function() {
+                    isConnected = false;
+                    statusDot.className = 'status-dot disconnected';
+                    statusText.textContent = 'Отключено';
+                    showStatus('Соединение потеряно', 'error');
+                    setTimeout(connectWebSocket, 3000);
+                };
+                ws.onerror = function(error) {
+                    console.error('WebSocket ошибка:', error);
+                };
+            } catch (e) {
+                console.error('Ошибка подключения:', e);
+                setTimeout(connectWebSocket, 3000);
+            }
+        }
+
+        function sendApiRequest(api, params) {
+            params = params || {};
+            if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) {
+                console.warn('WebSocket не подключен');
+                return false;
+            }
+            var message = { api_key: WS_API_KEY, api: api };
+            for (var key in params) {
+                if (params.hasOwnProperty(key)) {
+                    message[key] = params[key];
+                }
+            }
+            ws.send(JSON.stringify(message));
+            return true;
+        }
+
+        // ========================================================================
+        // 3. ОБРАБОТКА ВХОДЯЩИХ СООБЩЕНИЙ
+        // ========================================================================
+        function handleIncomingMessage(data) {
+            // Специальная обработка для get_cont_info_response
+            if (data.api === 'get_cont_info_response') {
+                showResponse(data);
+                showStatus('✅ Информация о контроллере получена', 'success');
+                if (data.request_id) {
+                    for (var id of pendingAsyncRequests.keys()) {
+                        var pending = pendingAsyncRequests.get(id);
+                        if (pending.requestId === data.request_id) {
+                            pendingAsyncRequests.delete(id);
+                            break;
+                        }
+                    }
+                }
+                return;
+            }
+
+            // Специальная обработка для get_sost_response
+            if (data.api === 'get_sost_response') {
+                showResponse(data);
+                showStatus('✅ Состояние контроллера получено', 'success');
+                if (data.request_id) {
+                    for (var id of pendingAsyncRequests.keys()) {
+                        var pending = pendingAsyncRequests.get(id);
+                        if (pending.requestId === data.request_id) {
+                            pendingAsyncRequests.delete(id);
+                            break;
+                        }
+                    }
+                }
+                return;
+            }
+
+            // Обработка trigger_info (других асинхронных событий)
+            if (data.api === 'trigger_info') {
+                showResponse(data);
+                return;
+            }
+
+            // Если это ответ на наш запрос - показываем в response
+            if (data.api) {
+                // Проверяем, что это не системный ответ
+                if (data.api !== 'stand_save' && data.api !== 'group_save' && 
+                    data.api !== 'check_save' && data.api !== 'test_save_data' && 
+                    data.api !== 'test_save_standart' && data.api !== 'test_run_new' &&
+                    data.api !== 'test_log') {
+                    
+                    showResponse(data);
+                    if (data.ok === 1) {
+                        showStatus('✅ Запрос выполнен успешно', 'success');
+                    } else if (data.ok === 0) {
+                        showStatus('❌ Ошибка: ' + (data.info || 'неизвестная'), 'error');
+                    }
+                }
+            }
+
+            // Обновляем список контроллеров для подсказок
+            if (data.api === 'controllers_list' && data.list) {
+                controllersList = data.list;
+                if (currentMethod) {
+                    renderMethodForm(currentMethod);
+                }
+            }
+
+            // Ошибки
+            if (data.info === 'wrong api' || data.info === 'wrong api_key') {
+                showResponse(data);
+                showStatus('Ошибка API: ' + data.info, 'error');
+            }
+        }
+
+        // ========================================================================
+        // 4. ЗАГРУЗКА МЕТОДОВ
+        // ========================================================================
+        function loadMethods() {
+            allMethods = Object.keys(API_METHODS).sort();
+            renderMethodList();
+            document.getElementById('methodsCount').textContent = allMethods.length + ' методов';
+        }
+
+        function renderMethodList(filter) {
+            filter = filter || '';
+            var container = document.getElementById('methodList');
+            var search = filter.toLowerCase().trim();
+            
+            var filtered = allMethods;
+            if (search) {
+                filtered = allMethods.filter(function(m) { return m.toLowerCase().includes(search); });
+            }
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="empty-message">Методы не найдены</div>';
+                return;
+            }
+
+            var html = '';
+            for (var i = 0; i < filtered.length; i++) {
+                var method = filtered[i];
+                var isActive = currentMethod === method;
+                var info = API_METHODS[method];
+                var paramsCount = info.params ? info.params.length : 0;
+                var asyncBadge = info.async ? ' async-badge' : '';
+                var asyncText = info.async ? ' ⏳' : '';
+                html += '<div class="method-item' + (isActive ? ' active' : '') + '" onclick="selectMethod(\'' + method + '\')">';
+                html += '    <span class="method-name">' + method + '</span>';
+                html += '    <span class="method-badge' + asyncBadge + '">' + paramsCount + ' пар.' + asyncText + '</span>';
+                html += '</div>';
+            }
+            container.innerHTML = html;
+        }
+
+        function filterMethods() {
+            var search = document.getElementById('methodSearch').value;
+            renderMethodList(search);
+        }
+
+        // ========================================================================
+        // 5. ВЫБОР МЕТОДА
+        // ========================================================================
+        function selectMethod(methodName) {
+            currentMethod = methodName;
+            renderMethodList(document.getElementById('methodSearch').value);
+            renderMethodForm(methodName);
+            clearResponse();
+            document.getElementById('sendBtn').disabled = false;
+            pendingAsyncRequests.clear();
+            showStatus('Выбран метод: ' + methodName, 'info');
+        }
+
+        function renderMethodForm(methodName) {
+            var container = document.getElementById('methodContent');
+            var info = API_METHODS[methodName];
+            
+            if (!info) {
+                container.innerHTML = '<div class="empty-message">Метод не найден</div>';
+                return;
+            }
+
+            document.getElementById('methodTitle').textContent = '📝 ' + methodName;
+
+            var html = '';
+            
+            html += '<div style="margin-bottom:12px;padding:8px 12px;background:#0d1117;border-radius:6px;border:1px solid #30363d;font-size:13px;color:#8b949e;">';
+            html += '<strong style="color:#f0f6fc;">Описание:</strong> ' + info.description;
+            if (info.async) {
+                html += ' <span style="background:#1f1f0d;color:#d29922;padding:0 8px;border-radius:4px;font-size:11px;border:1px solid #d29922;">⏳ Асинхронный</span>';
+            }
+            html += '</div>';
+
+            if (info.params && info.params.length > 0) {
+                html += '<div style="margin-bottom:12px;"><strong style="color:#8b949e;font-size:13px;">Параметры:</strong></div>';
+                for (var i = 0; i < info.params.length; i++) {
+                    var param = info.params[i];
+                    var required = param.required ? ' *' : '';
+                    var defaultValue = param.default !== undefined ? ' (по умолчанию: ' + param.default + ')' : '';
+                    html += '<div class="param-row">';
+                    html += '    <span class="param-name">' + param.name + required + '</span>';
+                    html += '    <span class="param-type">' + param.type + '</span>';
+                    html += '    <span class="param-desc">' + param.description + defaultValue + '</span>';
+                    
+                    if (param.type === 'string' && param.name === 'controller') {
+                        html += '<select id="param_' + param.name + '">';
+                        html += '<option value="">-- Выберите контроллер --</option>';
+                        for (var key in controllersList) {
+                            if (controllersList.hasOwnProperty(key)) {
+                                var c = controllersList[key];
+                                html += '<option value="' + key + '">' + key + ' (№' + c.number + ', ' + c.type + ')</option>';
+                            }
+                        }
+                        html += '</select>';
+                    } else if (param.type === 'string') {
+                        html += '<input type="text" id="param_' + param.name + '" placeholder="' + param.name + '">';
+                    } else if (param.type === 'number') {
+                        var val = param.default !== undefined ? ' value="' + param.default + '"' : '';
+                        html += '<input type="number" id="param_' + param.name + '" placeholder="' + param.name + '" step="any"' + val + '>';
+                    } else if (param.type === 'object') {
+                        html += '<textarea id="param_' + param.name + '" rows="2" placeholder=\'{"key": "value"}\' style="font-family:\'Consolas\',monospace;font-size:13px;"></textarea>';
+                    }
+                    html += '</div>';
+                }
+            } else {
+                html += '<div style="color:#8b949e;font-size:13px;padding:8px;text-align:center;">Метод не требует параметров</div>';
+            }
+
+            // Пример JSON
+            html += '<div style="margin-top:12px;padding:8px 12px;background:#0d1117;border-radius:6px;border:1px solid #21262d;font-size:12px;color:#8b949e;">';
+            html += '<strong>Пример запроса:</strong><br>';
+            html += '<span style="font-family:\'Consolas\',monospace;color:#58a6ff;">{</span>';
+            html += '<span style="font-family:\'Consolas\',monospace;color:#d29922;">"api"</span><span style="color:#8b949e;">: </span><span style="font-family:\'Consolas\',monospace;color:#d29922;">"' + methodName + '"</span>';
+            if (info.params && info.params.length > 0) {
+                for (var j = 0; j < info.params.length; j++) {
+                    var p = info.params[j];
+                    html += '<span style="color:#8b949e;">, </span>';
+                    html += '<span style="font-family:\'Consolas\',monospace;color:#d29922;">"' + p.name + '"</span>';
+                    html += '<span style="color:#8b949e;">: </span>';
+                    if (p.type === 'string') {
+                        html += '<span style="font-family:\'Consolas\',monospace;color:#d29922;">"value"</span>';
+                    } else if (p.type === 'number') {
+                        html += '<span style="font-family:\'Consolas\',monospace;color:#3fb950;">' + (p.default || 0) + '</span>';
+                    } else if (p.type === 'object') {
+                        html += '<span style="font-family:\'Consolas\',monospace;color:#d29922;">{}</span>';
+                    }
+                }
+            }
+            html += '<span style="font-family:\'Consolas\',monospace;color:#58a6ff;">}</span>';
+            html += '</div>';
+
+            container.innerHTML = html;
+        }
+
+        // ========================================================================
+        // 6. ОТПРАВКА ЗАПРОСА
+        // ========================================================================
+        function sendRequest() {
+            if (!currentMethod) {
+                showStatus('Выберите метод', 'warning');
+                return;
+            }
+
+            var info = API_METHODS[currentMethod];
+            var params = { api: currentMethod };
+
+            // Собираем параметры
+            if (info.params && info.params.length > 0) {
+                for (var i = 0; i < info.params.length; i++) {
+                    var param = info.params[i];
+                    var el = document.getElementById('param_' + param.name);
+                    if (el) {
+                        var value = el.value;
+                        if (param.type === 'number') {
+                            value = parseFloat(value);
+                            if (isNaN(value) && param.required) {
+                                showStatus('Параметр "' + param.name + '" должен быть числом', 'error');
+                                return;
+                            }
+                            if (isNaN(value) && !param.required) {
+                                continue;
+                            }
+                        } else if (param.type === 'object') {
+                            try {
+                                if (value.trim()) {
+                                    value = JSON.parse(value);
+                                } else {
+                                    if (param.required) {
+                                        showStatus('Параметр "' + param.name + '" обязателен', 'error');
+                                        return;
+                                    }
+                                    continue;
+                                }
+                            } catch (e) {
+                                showStatus('Ошибка парсинга JSON для "' + param.name + '": ' + e.message, 'error');
+                                return;
+                            }
+                        }
+                        if (param.required && (value === '' || value === null || value === undefined || (typeof value === 'number' && isNaN(value)))) {
+                            showStatus('Параметр "' + param.name + '" обязателен', 'error');
+                            return;
+                        }
+                        if (value !== '' && value !== null && value !== undefined && !(typeof value === 'number' && isNaN(value))) {
+                            params[param.name] = value;
+                        }
+                    }
+                }
+            }
+
+            // Очищаем ответ перед отправкой
+            clearResponse();
+            document.getElementById('responseTime').textContent = '';
+            
+            // Для асинхронных методов get_cont_info и get_sost
+            if (currentMethod === 'get_cont_info' || currentMethod === 'get_sost') {
+                var requestId = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+                var id = ++requestId;
+                pendingAsyncRequests.set(id, {
+                    method: currentMethod,
+                    requestId: requestId,
+                    timestamp: Date.now()
+                });
+                showStatus('⏳ Запрос отправлен, ожидаем ответ от контроллера...', 'waiting');
+                setTimeout(function() {
+                    if (pendingAsyncRequests.has(id)) {
+                        pendingAsyncRequests.delete(id);
+                        showStatus('⚠️ Таймаут ожидания ответа от контроллера', 'warning');
+                    }
+                }, 10000);
+            } else if (info.async) {
+                showStatus('⏳ Запрос отправлен, ожидаем ответ...', 'waiting');
+            } else {
+                showStatus('Отправка запроса...', 'info');
+            }
+
+            sendApiRequest(currentMethod, params);
+        }
+
+        // ========================================================================
+        // 7. ОТОБРАЖЕНИЕ ОТВЕТА
+        // ========================================================================
+        function showResponse(data) {
+            var box = document.getElementById('responseBox');
+            
+            var now = new Date();
+            var timeStr = now.toLocaleTimeString('ru-RU', { hour12: false });
+            document.getElementById('responseTime').textContent = 'Получено: ' + timeStr;
+            
+            // Специальная обработка для get_cont_info_response
+            if (data.api === 'get_cont_info_response') {
+                var html = '<div class="response-info">';
+                html += '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px;">';
+                html += '<div><span class="label">Контроллер:</span> <span class="value highlight">' + (data.controller || 'unknown') + '</span></div>';
+                html += '<div><span class="label">Тип:</span> <span class="value">' + (data.info && data.info.type !== undefined ? data.info.type : 'N/A') + '</span></div>';
+                html += '<div><span class="label">Номер:</span> <span class="value">' + (data.info && data.info.number !== undefined ? data.info.number : 'N/A') + '</span></div>';
+                html += '<div><span class="label">Версия:</span> <span class="value">' + (data.info && data.info.version ? data.info.version : 'N/A') + '</span></div>';
+                html += '<div><span class="label">Адрес:</span> <span class="value">' + (data.info && data.info.address !== undefined ? data.info.address : 'N/A') + '</span></div>';
+                html += '<div><span class="label">Статус:</span> <span class="value" style="color:' + (data.info && data.info.active ? '#3fb950' : '#f85149') + ';">' + (data.info && data.info.active ? 'Активен' : 'Неактивен') + '</span></div>';
+                html += '</div>';
+                if (data.info && data.info.data) {
+                    html += '<div><span class="label">Данные (hex):</span> <span class="value" style="font-size:12px;font-family:Consolas,monospace;">' + 
+                        data.info.data.map(function(b) { return '0x' + b.toString(16).padStart(2, '0').toUpperCase(); }).join(' ') + 
+                        '</span></div>';
+                }
+                html += '</div>';
+                box.innerHTML = html;
+                return;
+            }
+
+            // Специальная обработка для get_sost_response
+            if (data.api === 'get_sost_response') {
+                var state = data.state || {};
+                var html = '<div class="response-info">';
+                html += '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px;">';
+                html += '<div><span class="label">Контроллер:</span> <span class="value highlight">' + (data.controller || 'unknown') + '</span></div>';
+                html += '<div><span class="label">Выходы:</span> <span class="value">' + (state.outputs !== null ? '0b' + state.outputs.toString(2).padStart(8, '0') : 'N/A') + '</span></div>';
+                html += '<div><span class="label">Входы:</span> <span class="value">' + (state.inputs !== null ? '0b' + state.inputs.toString(2).padStart(8, '0') : 'N/A') + '</span></div>';
+                html += '</div>';
+                html += '<div class="state-grid">';
+                html += '<div class="item"><span class="label">Door (напряжение):</span> <span class="value">' + (state.door !== null ? state.door + ' усл. ед.' : 'N/A') + '</span></div>';
+                html += '<div class="item"><span class="label">LED (напряжение):</span> <span class="value">' + (state.led !== null ? state.led + ' усл. ед.' : 'N/A') + '</span></div>';
+                html += '<div class="item"><span class="label">ZUMM (напряжение):</span> <span class="value">' + (state.zp !== null ? state.zp + ' усл. ед.' : 'N/A') + '</span></div>';
+                html += '<div class="item"><span class="label">+12V (напряжение):</span> <span class="value">' + (state.v12 !== null ? state.v12 + ' усл. ед.' : 'N/A') + '</span></div>';
+                html += '</div>';
+                if (state.data) {
+                    html += '<div style="margin-top:8px;"><span class="label">Данные (hex):</span> <span class="value" style="font-size:12px;font-family:Consolas,monospace;">' + 
+                        state.data.map(function(b) { return '0x' + b.toString(16).padStart(2, '0').toUpperCase(); }).join(' ') + 
+                        '</span></div>';
+                }
+                html += '</div>';
+                box.innerHTML = html;
+                return;
+            }
+
+            // Обычная обработка JSON
+            var json = JSON.stringify(data, null, 2);
+            var highlighted = json;
+            highlighted = highlighted.replace(/"([^"]+)":/g, '<span class="response-key">"$1"</span>:');
+            highlighted = highlighted.replace(/: "([^"]*)"/g, ': <span class="response-string">"$1"</span>');
+            highlighted = highlighted.replace(/: (\d+\.?\d*)/g, ': <span class="response-number">$1</span>');
+            highlighted = highlighted.replace(/: (true|false)/g, ': <span class="response-boolean">$1</span>');
+            highlighted = highlighted.replace(/: (null)/g, ': <span class="response-null">$1</span>');
+            
+            if (data.api === 'trigger_info') {
+                box.innerHTML = '<div class="response-trigger">⚡ Асинхронный ответ от контроллера</div>' + highlighted;
+            } else {
+                box.innerHTML = highlighted;
+            }
+            box.scrollTop = 0;
+        }
+
+        function clearResponse() {
+            var box = document.getElementById('responseBox');
+            box.innerHTML = '<div style="color:#8b949e;">Ожидание запроса...</div>';
+            document.getElementById('responseTime').textContent = '';
+        }
+
+        function copyResponse() {
+            var box = document.getElementById('responseBox');
+            var text = box.textContent;
+            if (text && text !== 'Ожидание запроса...') {
+                navigator.clipboard.writeText(text).then(function() {
+                    showStatus('Ответ скопирован в буфер обмена', 'success');
+                }).catch(function() {
+                    var range = document.createRange();
+                    range.selectNode(box);
+                    window.getSelection().removeAllRanges();
+                    window.getSelection().addRange(range);
+                    document.execCommand('copy');
+                    showStatus('Ответ скопирован в буфер обмена', 'success');
+                });
+            }
+        }
+
+        // ========================================================================
+        // 8. ЗАПУСК
+        // ========================================================================
+        connectWebSocket();
+        
+        setInterval(function() {
+            if (isConnected) {
+                sendApiRequest('controllers_list', {});
+            }
+        }, 30000);
+    </script>
+</body>
+</html>

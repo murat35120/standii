@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление стендами</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0d1117; color: #c9d1d9; min-height: 100vh; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; background: #161b22; border-radius: 16px; padding: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+        header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px; border-bottom: 1px solid #30363d; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+        header h1 { font-size: 24px; font-weight: 600; color: #f0f6fc; }
+        .status { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #8b949e; }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; transition: background 0.3s; }
+        .status-dot.connected { background: #3fb950; box-shadow: 0 0 8px rgba(63,185,80,0.4); }
+        .status-dot.disconnected { background: #f85149; box-shadow: 0 0 8px rgba(248,81,73,0.4); }
+        
+        .panel { background: #0d1117; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+        .panel h2 { font-size: 16px; font-weight: 500; color: #f0f6fc; margin-bottom: 12px; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        
+        .btn { padding: 6px 14px; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.25s; }
+        .btn-primary { background: #1f6feb; color: #fff; }
+        .btn-primary:hover { background: #388bfd; }
+        .btn-success { background: #238636; color: #fff; }
+        .btn-success:hover { background: #2ea043; }
+        .btn-danger { background: #da3633; color: #fff; }
+        .btn-danger:hover { background: #f85149; }
+        .btn-warning { background: #d29922; color: #fff; }
+        .btn-warning:hover { background: #e3b341; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+        .btn-outline { background: transparent; border: 1px solid #30363d; color: #c9d1d9; }
+        .btn-outline:hover { background: #30363d; }
+        .btn-copy { background: #6f42c1; color: #fff; }
+        .btn-copy:hover { background: #8b5cf6; }
+        
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 500; color: #8b949e; margin-bottom: 4px; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px 12px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; color: #f0f6fc; font-size: 14px; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #58a6ff; }
+        .form-group textarea { resize: vertical; min-height: 60px; font-family: 'Consolas', monospace; }
+        .form-row { display: flex; flex-wrap: wrap; gap: 12px; }
+        .form-row .form-group { flex: 1; min-width: 150px; }
+        .form-row .form-group.small { flex: 0 0 auto; min-width: 80px; }
+        
+        .status-bar { padding: 10px 16px; border-radius: 8px; margin-bottom: 12px; }
+        .status-bar.info { background: #0d1f3c; color: #58a6ff; border: 1px solid #1f6feb; }
+        .status-bar.success { background: #0d1f1a; color: #3fb950; border: 1px solid #238636; }
+        .status-bar.error { background: #1f0d0d; color: #f85149; border: 1px solid #da3633; }
+        .status-bar.warning { background: #1f1f0d; color: #d29922; border: 1px solid #d29922; }
+        
+        .three-columns { display: flex; gap: 20px; }
+        .three-columns .left { flex: 0 0 250px; }
+        .three-columns .center { flex: 1; }
+        .three-columns .right { flex: 0 0 250px; }
+        
+        .stand-list { max-height: 70vh; overflow-y: auto; }
+        .stand-list .stand-item { padding: 10px 14px; border-bottom: 1px solid #21262d; cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; }
+        .stand-list .stand-item:hover { background: #161b22; }
+        .stand-list .stand-item.active { background: #0d1f3c; border-left: 3px solid #58a6ff; }
+        .stand-list .stand-item .stand-name { color: #f0f6fc; font-weight: 500; }
+        .stand-list .stand-item .stand-actions { display: flex; gap: 4px; }
+        
+        .view-toggle { display: flex; gap: 8px; margin-bottom: 12px; }
+        .view-toggle button { padding: 4px 16px; border: 1px solid #30363d; background: transparent; color: #8b949e; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+        .view-toggle button.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+        .view-toggle button:hover:not(.active) { background: #21262d; }
+        
+        .alias-tabs { display: flex; gap: 4px; margin-bottom: 8px; border-bottom: 1px solid #30363d; }
+        .alias-tabs button { padding: 6px 16px; background: transparent; border: none; color: #8b949e; cursor: pointer; font-size: 13px; border-bottom: 2px solid transparent; transition: all 0.2s; }
+        .alias-tabs button.active { color: #f0f6fc; border-bottom-color: #58a6ff; }
+        .alias-tabs button:hover:not(.active) { color: #c9d1d9; }
+        
+        .alias-item { background: #161b22; padding: 8px 12px; border-radius: 6px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
+        .alias-item .alias-info { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; align-items: center; }
+        .alias-item .alias-info .name { color: #58a6ff; font-weight: 600; }
+        .alias-item .alias-info .type-badge { font-size: 10px; padding: 0 6px; border-radius: 4px; }
+        .alias-item .alias-info .type-badge.command { color: #3fb950; border: 1px solid #238636; }
+        .alias-item .alias-info .type-badge.trigger { color: #d29922; border: 1px solid #d29922; }
+        .alias-item .alias-info .cmd { color: #3fb950; }
+        .alias-item .alias-info .ctrl { color: #d29922; font-size: 12px; }
+        .alias-item .alias-info .inv { color: #f0883e; font-size: 11px; }
+        .alias-item .alias-info .sost { color: #58a6ff; font-size: 12px; }
+        .alias-item .alias-info .minmax { color: #58a6ff; font-size: 12px; }
+        .alias-item .alias-actions { display: flex; gap: 4px; }
+        .alias-item .alias-actions button { background: none; border: none; cursor: pointer; font-size: 13px; padding: 0 4px; }
+        .alias-item .alias-actions .edit-btn { color: #58a6ff; }
+        .alias-item .alias-actions .edit-btn:hover { color: #79c0ff; }
+        .alias-item .alias-actions .del-btn { color: #f85149; }
+        .alias-item .alias-actions .del-btn:hover { color: #ff7b72; }
+        
+        .alias-list-container { max-height: 350px; overflow-y: auto; }
+        
+        .alias-add-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+        .alias-add-row .form-group { flex: 1; min-width: 80px; margin-bottom: 0; }
+        .alias-add-row .form-group select, .alias-add-row .form-group input { padding: 6px 10px; font-size: 13px; }
+        .alias-add-row .btn { padding: 6px 14px; font-size: 13px; align-self: flex-end; }
+        
+        .trigger-config { background: #0d1117; padding: 8px; border-radius: 6px; border: 1px solid #30363d; margin-top: 6px; }
+        .trigger-config .form-row { gap: 8px; }
+        .trigger-config .form-group { min-width: 60px; margin-bottom: 0; }
+        .trigger-config .form-group label { font-size: 11px; color: #8b949e; margin-bottom: 2px; }
+        .trigger-config .form-group input, .trigger-config .form-group select { padding: 4px 8px; font-size: 13px; width: 100%; background: #161b22; border: 1px solid #30363d; border-radius: 4px; color: #f0f6fc; }
+        
+        .edit-alias-config { background: #0d1117; padding: 8px; border-radius: 6px; border: 1px solid #30363d; margin-top: 6px; }
+        .edit-alias-config .form-row { gap: 8px; }
+        .edit-alias-config .form-group { min-width: 60px; margin-bottom: 0; }
+        .edit-alias-config .form-group label { font-size: 11px; color: #8b949e; margin-bottom: 2px; }
+        .edit-alias-config .form-group input, .edit-alias-config .form-group select { padding: 4px 8px; font-size: 13px; width: 100%; background: #161b22; border: 1px solid #30363d; border-radius: 4px; color: #f0f6fc; }
+        
+        .empty-message { color: #8b949e; text-align: center; padding: 20px 0; }
+        
+        .right-panel .btn { width: 100%; margin-bottom: 6px; }
+        .right-panel .btn:last-child { margin-bottom: 0; }
+        
+        .controller-checkbox-list { max-height: 180px; overflow-y: auto; padding: 8px; background: #0d1117; border-radius: 8px; border: 1px solid #30363d; }
+        .controller-checkbox-list .ctrl-item { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 4px; cursor: pointer; }
+        .controller-checkbox-list .ctrl-item:hover { background: #161b22; }
+        .controller-checkbox-list .ctrl-item input[type="checkbox"] { accent-color: #238636; width: 16px; height: 16px; cursor: pointer; }
+        .controller-checkbox-list .ctrl-item span { font-size: 13px; }
+        
+        .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn-row .btn { flex: 1; min-width: 100px; text-align: center; }
+        
+        @media (max-width: 1024px) {
+            .three-columns { flex-direction: column; }
+            .three-columns .left { flex: 1; }
+            .three-columns .right { flex: 1; }
+            .alias-add-row .form-group { min-width: 100%; }
+        }
+        @media (max-width: 768px) {
+            .three-columns { flex-direction: column; }
+            .three-columns .left { flex: 1; }
+            .three-columns .right { flex: 1; }
+            .form-row .form-group { min-width: 100%; }
+            .alias-add-row .form-group { min-width: 100%; }
+            .btn-row { flex-direction: column; }
+            .btn-row .btn { flex: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏗️ Управление стендами</h1>
+            <div class="status">
+                <span class="status-dot disconnected" id="statusDot"></span>
+                <span id="statusText">Отключено</span>
+            </div>
+        </header>
+
+        <div id="statusBar" class="status-bar info">Загрузка данных...</div>
+
+        <div class="three-columns">
+            <!-- Левая колонка - список стендов -->
+            <div class="left">
+                <div class="panel">
+                    <div class="flex-between">
+                        <h2>📋 Стенды</h2>
+                        <div class="btn-row" style="flex:1;justify-content:flex-end;">
+                            <button class="btn btn-success btn-sm" onclick="createStand()">➕ Новый</button>
+                            <button class="btn btn-copy btn-sm" onclick="copyStand()" id="copyStandBtn" disabled>📋 Копировать</button>
+                        </div>
+                    </div>
+                    <div id="standList" class="stand-list">
+                        <div class="empty-message">Нет стендов</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Центральная колонка - редактирование -->
+            <div class="center">
+                <div class="panel">
+                    <div class="flex-between">
+                        <h2 id="editTitle">📝 Выберите стенд для редактирования</h2>
+                    </div>
+                    <div id="editContent">
+                        <div class="empty-message">Выберите стенд из списка слева</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Правая колонка - кнопки управления -->
+            <div class="right">
+                <div class="panel right-panel">
+                    <h2>⚙️ Управление</h2>
+                    <button class="btn btn-success" onclick="saveStand()" id="saveBtn" disabled>💾 Сохранить</button>
+                    <button class="btn btn-danger" onclick="deleteCurrentStand()" id="deleteBtn" disabled>🗑️ Удалить стенд</button>
+                    <button class="btn btn-warning" onclick="switchView('main')" id="mainViewBtn">📝 Основное</button>
+                    <button class="btn btn-primary" onclick="switchView('aliases')" id="aliasesViewBtn">🔗 Алиасы (<span id="aliasCount">0</span>)</button>
+                    <button class="btn btn-outline" onclick="loadStands()">🔄 Обновить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========================================================================
+        // 1. КОНСТАНТЫ И ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+        // ========================================================================
+        var WS_API_KEY = '1356_api';
+        var AVAILABLE_COMMANDS = ['green', 'red', 'sound', 'lock', 'd0', 'd1', 'open_for_out', 'open_for_in', 'new_address'];
+
+        // ===== ОБНОВЛЕННЫЙ TRIGGER_SOST_MAP =====
+        var TRIGGER_SOST_MAP = {
+            '3': { 
+                '1': 'LED (зеленый)', 
+                '2': 'ZUMM (красный)', 
+                '4': 'Внутренний звук', 
+                '8': 'LOCK (замок)' 
+            },
+            '4': {
+                // Точные значения для TM (биты 2-3) и EXIT (биты 0-1)
+                '0': 'Исходное состояние',
+                '1': 'Закорочен (кнопка)',
+                '2': 'Обнаружена карта',
+                '3': 'Активный 0 (выдается 0)',
+                // Старые битовые описания для обратной совместимости
+                //'4': 'TM - обнаружена карта (старое)',
+                '8': 'Встроенный считыватель - карта',
+                '16': 'Встроенный считыватель - активный 0',
+                '32': 'DOOR (дверь) - открыта'
+            },
+            '12': { '0': '0 В', '127': 'макс. напряжение' },
+            '13': { '0': '0 В', '127': 'макс. напряжение' },
+            '14': { '0': '0 В', '127': 'макс. напряжение' },
+            '15': { '0': '0 В', '127': 'макс. напряжение' }
+        };
+
+        var ws = null;
+        var isConnected = false;
+        var controllersList = {};
+        var triggerTypesList = {};
+        var standsList = [];
+        var currentStand = null;
+        var editingAliasKey = null;
+        var currentAliasType = 'command';
+        var currentView = 'main';
+        var isRendering = false;
+
+        // Сохраняем последние значения полей
+        var lastAliasKey = '';
+        var lastCommand = '';
+        var lastTrigger = '';
+        var lastController = '';
+        var lastInversion = false;
+        var lastSost = '';
+        var lastMin = '';
+        var lastMax = '';
+        var lastDev = '';
+
+        var statusDot = document.getElementById('statusDot');
+        var statusText = document.getElementById('statusText');
+        var statusBar = document.getElementById('statusBar');
+
+        // ========================================================================
+        // 2. WEB SOCKET
+        // ========================================================================
+        function showStatus(msg, type) {
+            type = type || 'info';
+            statusBar.textContent = msg;
+            statusBar.className = 'status-bar ' + type;
+        }
+
+        function connectWebSocket() {
+            var host = window.location.hostname;
+            var wsUrl = 'ws://' + host + ':9090';
+            try {
+                ws = new WebSocket(wsUrl);
+                ws.onopen = function() {
+                    isConnected = true;
+                    statusDot.className = 'status-dot connected';
+                    statusText.textContent = 'Подключено';
+                    showStatus('Соединение установлено', 'success');
+                    loadStands();
+                    sendApiRequest('controllers_list', {});
+                    sendApiRequest('triggers_type', {});
+                };
+                ws.onmessage = function(event) {
+                    try {
+                        var data = JSON.parse(event.data);
+                        console.log('WS получено:', data);
+                        handleIncomingMessage(data);
+                    } catch (e) {
+                        console.error('Ошибка парсинга:', e);
+                    }
+                };
+                ws.onclose = function() {
+                    isConnected = false;
+                    statusDot.className = 'status-dot disconnected';
+                    statusText.textContent = 'Отключено';
+                    showStatus('Соединение потеряно', 'error');
+                    setTimeout(connectWebSocket, 3000);
+                };
+                ws.onerror = function(error) {
+                    console.error('WebSocket ошибка:', error);
+                };
+            } catch (e) {
+                console.error('Ошибка подключения:', e);
+                setTimeout(connectWebSocket, 3000);
+            }
+        }
+
+        function sendApiRequest(api, params) {
+            params = params || {};
+            if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) {
+                console.warn('WebSocket не подключен');
+                return false;
+            }
+            var message = { api_key: WS_API_KEY, api: api };
+            for (var key in params) {
+                if (params.hasOwnProperty(key)) {
+                    message[key] = params[key];
+                }
+            }
+            ws.send(JSON.stringify(message));
+            return true;
+        }
+
+        // ========================================================================
+        // 3. ОБРАБОТКА ВХОДЯЩИХ СООБЩЕНИЙ
+        // ========================================================================
+        function handleIncomingMessage(data) {
+            if (data.list && typeof data.list === 'object') {
+                var keys = Object.keys(data.list);
+                if (keys.length > 0) {
+                    if (keys[0].includes('_')) {
+                        controllersList = data.list;
+                        if (currentStand && currentView === 'aliases') renderEditForm(currentStand);
+                        return;
+                    } else {
+                        triggerTypesList = data.list;
+                        if (currentStand && currentView === 'aliases') renderEditForm(currentStand);
+                        return;
+                    }
+                }
+            }
+
+            if (data.stands) {
+                standsList = data.stands;
+                renderStandList();
+                // Активируем кнопку копирования, если есть стенды
+                document.getElementById('copyStandBtn').disabled = (standsList.length === 0);
+                return;
+            }
+
+            if (data.stand) {
+                currentStand = data.stand;
+                renderEditForm(data.stand);
+                document.getElementById('saveBtn').disabled = false;
+                document.getElementById('deleteBtn').disabled = false;
+                return;
+            }
+
+            if (data.api === 'copy_stand') {
+                if (data.ok) {
+                    showStatus(data.info || 'Стенд скопирован', 'success');
+                    loadStands();
+                } else {
+                    showStatus('Ошибка копирования: ' + (data.info || 'неизвестная'), 'error');
+                }
+                return;
+            }
+
+            if (data.ok === 1 && data.info === 'Стенд сохранен') {
+                showStatus(data.info, 'success');
+                loadStands();
+                return;
+            }
+
+            if (data.ok === 1 && data.info === 'Стенд удален') {
+                showStatus(data.info, 'success');
+                loadStands();
+                currentStand = null;
+                document.getElementById('editContent').innerHTML = '<div class="empty-message">Выберите стенд из списка слева</div>';
+                document.getElementById('editTitle').textContent = '📝 Выберите стенд для редактирования';
+                document.getElementById('saveBtn').disabled = true;
+                document.getElementById('deleteBtn').disabled = true;
+                return;
+            }
+
+            if (data.info === 'wrong api' || data.info === 'wrong api_key') {
+                showStatus('Ошибка API: ' + data.info, 'error');
+                return;
+            }
+        }
+
+        // ========================================================================
+        // 4. ЗАГРУЗКА ДАННЫХ
+        // ========================================================================
+        function loadStands() {
+            sendApiRequest('stands_list', {});
+        }
+
+        function selectStand(path) {
+            sendApiRequest('stand_get', { stand_name: path });
+        }
+
+        function createStand() {
+            currentStand = { name: '', description: '', controllers: [], alias: {}, wiring: {} };
+            currentView = 'main';
+            document.getElementById('editTitle').textContent = '📝 Новый стенд';
+            renderEditForm(currentStand);
+            document.getElementById('saveBtn').disabled = false;
+            document.getElementById('deleteBtn').disabled = true;
+        }
+
+        function copyStand() {
+            var currentStandName = currentStand ? currentStand.name : '';
+            
+            if (!currentStandName) {
+                showStatus('Выберите стенд для копирования', 'error');
+                return;
+            }
+
+            var newName = prompt('Введите имя для нового стенда:', currentStandName + '_copy');
+            if (!newName) {
+                showStatus('Отменено', 'info');
+                return;
+            }
+
+            sendApiRequest('copy_stand', {
+                source_name: currentStandName,
+                new_name: newName
+            });
+            showStatus('Копирование стенда...', 'info');
+        }
+
+        function deleteCurrentStand() {
+            if (!currentStand || !currentStand.name) return;
+            if (!confirm('Удалить стенд "' + currentStand.name + '"?')) return;
+            sendApiRequest('stand_delete', { stand_name: currentStand.name });
+        }
+
+        // ========================================================================
+        // 5. РЕНДЕРИНГ
+        // ========================================================================
+        function renderStandList() {
+            var container = document.getElementById('standList');
+            if (!standsList || standsList.length === 0) {
+                container.innerHTML = '<div class="empty-message">Нет стендов</div>';
+                return;
+            }
+            var html = '';
+            for (var i = 0; i < standsList.length; i++) {
+                var s = standsList[i];
+                var isActive = currentStand && currentStand.name === s.name;
+                var controllersCount = s.controllers ? s.controllers.length : 0;
+                html += '<div class="stand-item' + (isActive ? ' active' : '') + '" onclick="selectStand(\'' + s.path + '\')">';
+                html += '    <span class="stand-name">' + s.name + '</span>';
+                html += '    <div class="stand-actions">';
+                html += '        <span style="font-size:11px;color:#8b949e;margin-right:8px;">' + controllersCount + ' кнтр.</span>';
+                html += '        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();sendApiRequest(\'stand_delete\', { stand_name: \'' + s.path + '\' })">🗑️</button>';
+                html += '    </div>';
+                html += '</div>';
+            }
+            container.innerHTML = html;
+            // Обновляем состояние кнопки копирования
+            document.getElementById('copyStandBtn').disabled = false;
+        }
+
+        function switchView(view) {
+            currentView = view;
+            document.getElementById('mainViewBtn').className = 'btn' + (view === 'main' ? ' btn-warning' : ' btn-outline');
+            document.getElementById('aliasesViewBtn').className = 'btn' + (view === 'aliases' ? ' btn-primary' : ' btn-outline');
+            if (currentStand) {
+                renderEditForm(currentStand);
+            }
+        }
+
+        function renderEditForm(stand) {
+            isRendering = true;
+            var container = document.getElementById('editContent');
+            var isNew = !stand.name;
+
+            if (!stand) {
+                container.innerHTML = '<div class="empty-message">Выберите стенд из списка слева</div>';
+                isRendering = false;
+                return;
+            }
+
+            var aliasData = stand.alias || {};
+            var aliasKeys = Object.keys(aliasData);
+            document.getElementById('aliasCount').textContent = aliasKeys.length;
+
+            var html = '';
+
+            html += '<div class="view-toggle">';
+            html += '    <button class="btn ' + (currentView === 'main' ? 'btn-warning' : 'btn-outline') + '" onclick="switchView(\'main\')">📝 Основное</button>';
+            html += '    <button class="btn ' + (currentView === 'aliases' ? 'btn-primary' : 'btn-outline') + '" onclick="switchView(\'aliases\')">🔗 Алиасы (' + aliasKeys.length + ')</button>';
+            html += '</div>';
+
+            if (currentView === 'main') {
+                html += '<div class="form-group">';
+                html += '    <label>Название стенда *</label>';
+                html += '    <input type="text" id="standName" value="' + (stand.name || '') + '" placeholder="Введите название">';
+                html += '</div>';
+                html += '<div class="form-group">';
+                html += '    <label>Описание</label>';
+                html += '    <textarea id="standDescription" rows="2" placeholder="Описание стенда">' + (stand.description || '') + '</textarea>';
+                html += '</div>';
+                html += '<div class="form-group">';
+                html += '    <label>Выберите контроллеры для стенда</label>';
+                html += '    <div class="controller-checkbox-list">';
+                var ctrlKeys = Object.keys(controllersList);
+                var controllerNumbers = stand.controllers || [];
+                if (ctrlKeys.length === 0) {
+                    html += '<span class="empty-message" style="grid-column:1/-1;">Загрузка контроллеров...</span>';
+                } else {
+                    for (var i = 0; i < ctrlKeys.length; i++) {
+                        var key = ctrlKeys[i];
+                        var c = controllersList[key];
+                        var checked = controllerNumbers.indexOf(c.number) !== -1 ? 'checked' : '';
+                        html += '<div class="ctrl-item">';
+                        html += '    <input type="checkbox" value="' + key + '" data-number="' + c.number + '" ' + checked + '>';
+                        html += '    <span>' + key + ' (' + (c.type || '?') + '_' + (c.number || '?') + ')</span>';
+                        html += '</div>';
+                    }
+                }
+                html += '    </div>';
+                html += '    <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">';
+                html += '        <button type="button" class="btn btn-sm btn-primary" onclick="selectAllControllers()">Выбрать все</button>';
+                html += '        <button type="button" class="btn btn-sm btn-outline" onclick="deselectAllControllers()">Снять все</button>';
+                html += '        <span id="selectedCount" style="font-size:13px;color:#8b949e;">Выбрано: ' + controllerNumbers.length + '</span>';
+                html += '    </div>';
+                html += '</div>';
+                html += '<div class="form-group">';
+                html += '    <label>Схема подключения (файл в wirings/)</label>';
+                html += '    <input type="text" id="standWiring" value="' + (stand.wiring && stand.wiring.file ? stand.wiring.file : '') + '" placeholder="scheme.png">';
+                html += '</div>';
+            } else {
+                html += renderAliasesTab(stand);
+            }
+
+            container.innerHTML = html;
+            document.getElementById('editTitle').textContent = isNew ? '📝 Новый стенд' : '📝 ' + stand.name;
+
+            if (currentView === 'main') {
+                var checkboxes = document.querySelectorAll('.controller-checkbox-list input[type="checkbox"]');
+                for (var ci = 0; ci < checkboxes.length; ci++) {
+                    checkboxes[ci].addEventListener('change', updateSelectedCount);
+                }
+                updateSelectedCount();
+            }
+
+            isRendering = false;
+        }
+
+        function renderAliasesTab(stand) {
+            var aliasData = stand.alias || {};
+            var html = '';
+
+            html += '<div class="alias-tabs">';
+            html += '    <button class="' + (currentAliasType === 'command' ? 'active' : '') + '" onclick="setAliasType(\'command\')">⚡ Команды</button>';
+            html += '    <button class="' + (currentAliasType === 'trigger' ? 'active' : '') + '" onclick="setAliasType(\'trigger\')">🔔 Триггеры</button>';
+            html += '</div>';
+
+            html += '<div id="aliasAddForm" style="margin-bottom:12px;padding:10px;background:#0d1117;border-radius:6px;border:1px solid #30363d;">';
+            html += renderAddAliasForm(stand);
+            html += '</div>';
+
+            html += '<div id="aliasList" class="alias-list-container">';
+            var filteredKeys = [];
+            for (var key in aliasData) {
+                if (aliasData.hasOwnProperty(key)) {
+                    var val = aliasData[key];
+                    var type = val.type || 'command';
+                    if (type === currentAliasType) {
+                        filteredKeys.push(key);
+                    }
+                }
+            }
+
+            if (filteredKeys.length === 0) {
+                html += '<div style="color:#8b949e;font-size:13px;padding:8px;text-align:center;">Нет ' + (currentAliasType === 'command' ? 'команд' : 'триггеров') + '</div>';
+            } else {
+                for (var ai = 0; ai < filteredKeys.length; ai++) {
+                    var aliasKey = filteredKeys[ai];
+                    var val = aliasData[aliasKey];
+                    var type = val.type || 'command';
+                    var isEditing = (editingAliasKey === aliasKey);
+
+                    if (isEditing) {
+                        html += renderEditAliasForm(stand, aliasKey, val);
+                    } else {
+                        html += renderAliasItem(aliasKey, val);
+                    }
+                }
+            }
+            html += '</div>';
+
+            return html;
+        }
+
+        function renderAddAliasForm(stand) {
+            var html = '';
+            html += '<div class="alias-add-row">';
+            
+            html += '    <div class="form-group" style="min-width:100px;">';
+            html += '        <input type="text" id="aliasKey" placeholder="Алиас" style="font-size:13px;padding:6px 10px;" value="' + lastAliasKey + '">';
+            html += '    </div>';
+
+            if (currentAliasType === 'command') {
+                html += '    <div class="form-group" style="min-width:120px;">';
+                html += '        <select id="aliasCommandSelect" style="font-size:13px;padding:6px 10px;">';
+                html += '            <option value="">-- Команда --</option>';
+                for (var ci = 0; ci < AVAILABLE_COMMANDS.length; ci++) {
+                    var selected = (AVAILABLE_COMMANDS[ci] === lastCommand) ? ' selected' : '';
+                    html += '            <option value="' + AVAILABLE_COMMANDS[ci] + '"' + selected + '>' + AVAILABLE_COMMANDS[ci] + '</option>';
+                }
+                html += '        </select>';
+                html += '    </div>';
+                html += '    <div class="form-group" style="min-width:100px;">';
+                html += '        <select id="aliasControllerSelect" style="font-size:13px;padding:6px 10px;">';
+                html += '            <option value="">-- Контроллер --</option>';
+                for (var key in controllersList) {
+                    if (controllersList.hasOwnProperty(key)) {
+                        var selected2 = (key === lastController) ? ' selected' : '';
+                        html += '            <option value="' + key + '"' + selected2 + '>' + key + '</option>';
+                    }
+                }
+                html += '        </select>';
+                html += '    </div>';
+                html += '    <div class="form-group" style="min-width:70px;display:flex;align-items:center;gap:4px;">';
+                html += '        <label style="font-size:11px;color:#8b949e;margin:0;">Инв.</label>';
+                html += '        <input type="checkbox" id="aliasInversion" style="accent-color:#d29922;"' + (lastInversion ? ' checked' : '') + '>';
+                html += '    </div>';
+            } else {
+                html += '    <div class="form-group" style="min-width:120px;">';
+                html += '        <select id="aliasTriggerSelect" style="font-size:13px;padding:6px 10px;" onchange="onTriggerTypeChange()">';
+                html += '            <option value="">-- Триггер --</option>';
+                for (var trgKey in triggerTypesList) {
+                    if (triggerTypesList.hasOwnProperty(trgKey)) {
+                        var selected3 = (trgKey === lastTrigger) ? ' selected' : '';
+                        html += '            <option value="' + trgKey + '"' + selected3 + '>' + trgKey + '</option>';
+                    }
+                }
+                html += '        </select>';
+                html += '    </div>';
+                html += '    <div class="form-group" style="min-width:100px;">';
+                html += '        <select id="aliasControllerSelect" style="font-size:13px;padding:6px 10px;">';
+                html += '            <option value="">-- Контроллер --</option>';
+                for (var key2 in controllersList) {
+                    if (controllersList.hasOwnProperty(key2)) {
+                        var selected4 = (key2 === lastController) ? ' selected' : '';
+                        html += '            <option value="' + key2 + '"' + selected4 + '>' + key2 + '</option>';
+                    }
+                }
+                html += '        </select>';
+                html += '    </div>';
+                html += '    <div class="form-group" style="min-width:120px;" id="triggerConfigGroup">';
+                html += '        <div id="triggerConfigContent" class="trigger-config">';
+                html += renderTriggerParams();
+                html += '        </div>';
+                html += '    </div>';
+            }
+
+            html += '    <div class="form-group" style="min-width:70px;display:flex;align-items:flex-end;">';
+            html += '        <button type="button" class="btn btn-primary btn-sm" onclick="addAlias()" style="width:100%;">➕</button>';
+            html += '    </div>';
+            html += '</div>';
+
+            return html;
+        }
+
+        function renderTriggerParams() {
+            if (!lastTrigger) return '<div style="color:#8b949e;font-size:12px;padding:4px;">Выберите триггер</div>';
+            
+            var triggerInfo = triggerTypesList[lastTrigger];
+            if (!triggerInfo) return '<div style="color:#f85149;font-size:12px;padding:4px;">Тип триггера не найден</div>';
+
+            if (lastTrigger.startsWith('va_')) {
+                return `
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Min</label>
+                            <input type="number" id="aliasTriggerMin" value="${lastMin || triggerInfo.min || -20}" step="0.1" style="font-size:13px;padding:4px 8px;width:70px;">
+                        </div>
+                        <div class="form-group">
+                            <label>Max</label>
+                            <input type="number" id="aliasTriggerMax" value="${lastMax || triggerInfo.max || 100}" step="0.1" style="font-size:13px;padding:4px 8px;width:70px;">
+                        </div>
+                        <div class="form-group">
+                            <label>Dev</label>
+                            <input type="number" id="aliasTriggerDev" value="${lastDev || triggerInfo.dev || 10}" step="0.1" style="font-size:13px;padding:4px 8px;width:70px;">
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Для всех типов триггеров (включая tm_* и exit_*)
+                var options = getSostOptions(triggerInfo);
+                if (options && options.length > 0) {
+                    var html = '<div class="form-group"><label>Sost</label>';
+                    html += '<select id="aliasTriggerSost" style="font-size:13px;padding:4px 8px;width:100%;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#f0f6fc;">';
+                    var currentSost = lastSost || '0';
+                    for (var i = 0; i < options.length; i++) {
+                        var opt = options[i];
+                        var selected = (opt.value === currentSost) ? 'selected' : '';
+                        html += '<option value="' + opt.value + '" ' + selected + '>' + opt.value + ' — ' + opt.label + '</option>';
+                    }
+                    html += '</select></div>';
+                    return html;
+                } else {
+                    return `
+                        <div class="form-group">
+                            <label>Sost</label>
+                            <input type="number" id="aliasTriggerSost" value="${lastSost || 0}" style="font-size:13px;padding:4px 8px;width:100px;">
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        function renderAliasItem(key, val) {
+            var type = val.type || 'command';
+            var typeBadge = type === 'command' ? '⚡ команда' : '🔔 триггер';
+            var inv = val.inversion === 'yes' ? '🔄 инверсия' : '';
+            var sost = val.sost !== undefined ? 'sost: ' + val.sost : '';
+            // Для новых типов добавляем описание состояния
+            var sostDesc = '';
+            if (val.sost !== undefined && val.trigger) {
+                var triggerInfo = triggerTypesList[val.trigger];
+                if (triggerInfo) {
+                    var byteNum = String(triggerInfo.byte_num);
+                    if (TRIGGER_SOST_MAP[byteNum] && TRIGGER_SOST_MAP[byteNum][String(val.sost)]) {
+                        sostDesc = ' (' + TRIGGER_SOST_MAP[byteNum][String(val.sost)] + ')';
+                    }
+                }
+            }
+            var minmax = (val.min !== undefined) ? 'min:' + val.min + ' max:' + val.max + ' dev:' + val.dev : '';
+            var target = val.command || val.trigger || '';
+
+            var html = '<div class="alias-item">';
+            html += '    <div class="alias-info">';
+            html += '        <span class="name">' + key + '</span>';
+            html += '        <span class="type-badge ' + type + '">' + typeBadge + '</span>';
+            html += '        <span class="cmd">→ ' + target + '</span>';
+            html += '        <span class="ctrl">(контроллер: ' + (val.controller || 'любой') + ')</span>';
+            if (sost) html += '        <span class="sost">' + sost + sostDesc + '</span>';
+            if (minmax) html += '        <span class="minmax">' + minmax + '</span>';
+            if (inv) html += '        <span class="inv">' + inv + '</span>';
+            html += '    </div>';
+            html += '    <div class="alias-actions">';
+            html += '        <button class="edit-btn" onclick="startEditAlias(\'' + key + '\')">✏️</button>';
+            html += '        <button class="del-btn" onclick="removeAlias(\'' + key + '\')">✕</button>';
+            html += '    </div>';
+            html += '</div>';
+            return html;
+        }
+
+        function renderEditAliasForm(stand, key, val) {
+            var type = val.type || 'command';
+            var html = '<div style="background:#0d1f3c;padding:10px;border-radius:6px;border:1px solid #1f6feb;margin-bottom:6px;">';
+            html += '    <div class="form-row">';
+            html += '        <div class="form-group" style="min-width:80px;">';
+            html += '            <input type="text" id="editAliasKey" value="' + key + '" style="font-size:13px;padding:6px 10px;">';
+            html += '        </div>';
+            html += '        <div class="form-group" style="min-width:100px;">';
+            html += '            <select id="editAliasType" style="font-size:13px;padding:6px 10px;" onchange="toggleEditAliasType()">';
+            html += '                <option value="command"' + (type === 'command' ? ' selected' : '') + '>Команда</option>';
+            html += '                <option value="trigger"' + (type === 'trigger' ? ' selected' : '') + '>Триггер</option>';
+            html += '            </select>';
+            html += '        </div>';
+
+            if (type === 'command') {
+                html += '        <div class="form-group" style="min-width:100px;">';
+                html += '            <select id="editAliasCommand" style="font-size:13px;padding:6px 10px;">';
+                html += '                <option value="">-- Команда --</option>';
+                for (var ci = 0; ci < AVAILABLE_COMMANDS.length; ci++) {
+                    var cmd = AVAILABLE_COMMANDS[ci];
+                    html += '                <option value="' + cmd + '"' + (cmd === val.command ? ' selected' : '') + '>' + cmd + '</option>';
+                }
+                html += '            </select>';
+                html += '        </div>';
+                html += '        <div class="form-group" style="min-width:100px;">';
+                html += '            <select id="editAliasController" style="font-size:13px;padding:6px 10px;">';
+                html += '                <option value="">-- Контроллер --</option>';
+                for (var keyCtrl in controllersList) {
+                    if (controllersList.hasOwnProperty(keyCtrl)) {
+                        html += '                <option value="' + keyCtrl + '"' + (keyCtrl === val.controller ? ' selected' : '') + '>' + keyCtrl + '</option>';
+                    }
+                }
+                html += '            </select>';
+                html += '        </div>';
+                html += '        <div class="form-group" style="min-width:70px;display:flex;align-items:center;gap:4px;">';
+                html += '            <label style="font-size:11px;color:#8b949e;margin:0;">Инв.</label>';
+                html += '            <input type="checkbox" id="editAliasInversion"' + (val.inversion === 'yes' ? ' checked' : '') + ' style="accent-color:#d29922;">';
+                html += '        </div>';
+            } else {
+                html += '        <div class="form-group" style="min-width:100px;">';
+                html += '            <select id="editAliasTrigger" style="font-size:13px;padding:6px 10px;" onchange="onEditTriggerTypeChange()">';
+                html += '                <option value="">-- Триггер --</option>';
+                for (var trgKey in triggerTypesList) {
+                    if (triggerTypesList.hasOwnProperty(trgKey)) {
+                        html += '                <option value="' + trgKey + '"' + (trgKey === val.trigger ? ' selected' : '') + '>' + trgKey + '</option>';
+                    }
+                }
+                html += '            </select>';
+                html += '        </div>';
+                html += '        <div class="form-group" style="min-width:100px;">';
+                html += '            <select id="editAliasController" style="font-size:13px;padding:6px 10px;">';
+                html += '                <option value="">-- Контроллер --</option>';
+                for (var keyCtrl2 in controllersList) {
+                    if (controllersList.hasOwnProperty(keyCtrl2)) {
+                        html += '                <option value="' + keyCtrl2 + '"' + (keyCtrl2 === val.controller ? ' selected' : '') + '>' + keyCtrl2 + '</option>';
+                    }
+                }
+                html += '            </select>';
+                html += '        </div>';
+                html += '        <div class="form-group" style="min-width:120px;display:none;" id="editTriggerConfigGroup">';
+                html += '            <div id="editTriggerConfigContent" class="edit-alias-config"></div>';
+                html += '        </div>';
+            }
+
+            html += '        <div class="form-group" style="min-width:70px;display:flex;align-items:flex-end;">';
+            html += '            <button class="btn btn-success btn-sm" onclick="saveAliasEdit()">💾</button>';
+            html += '            <button class="btn btn-outline btn-sm" onclick="cancelAliasEdit()">✕</button>';
+            html += '        </div>';
+            html += '    </div>';
+            html += '</div>';
+
+            if (type === 'trigger') {
+                setTimeout(function() {
+                    populateEditTriggerConfig(val);
+                }, 50);
+            }
+
+            return html;
+        }
+
+        // ========================================================================
+        // 6. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+        // ========================================================================
+        function updateSelectedCount() {
+            var checked = document.querySelectorAll('.controller-checkbox-list input[type="checkbox"]:checked').length;
+            var el = document.getElementById('selectedCount');
+            if (el) el.textContent = 'Выбрано: ' + checked;
+        }
+
+        function selectAllControllers() {
+            var checkboxes = document.querySelectorAll('.controller-checkbox-list input[type="checkbox"]');
+            for (var i = 0; i < checkboxes.length; i++) {
+                checkboxes[i].checked = true;
+            }
+            updateSelectedCount();
+        }
+
+        function deselectAllControllers() {
+            var checkboxes = document.querySelectorAll('.controller-checkbox-list input[type="checkbox"]');
+            for (var i = 0; i < checkboxes.length; i++) {
+                checkboxes[i].checked = false;
+            }
+            updateSelectedCount();
+        }
+
+        function getSelectedControllers() {
+            var checkboxes = document.querySelectorAll('.controller-checkbox-list input[type="checkbox"]:checked');
+            var numbers = [];
+            for (var i = 0; i < checkboxes.length; i++) {
+                numbers.push(parseInt(checkboxes[i].dataset.number));
+            }
+            return numbers;
+        }
+
+        function setAliasType(type) {
+            currentAliasType = type;
+            var tabs = document.querySelectorAll('.alias-tabs button');
+            for (var i = 0; i < tabs.length; i++) {
+                tabs[i].className = '';
+            }
+            if (type === 'command') {
+                tabs[0].className = 'active';
+            } else {
+                tabs[1].className = 'active';
+            }
+            if (currentStand) {
+                renderEditForm(currentStand);
+            }
+        }
+
+        // ========================================================================
+        // 7. ТРИГГЕРЫ - ПАРАМЕТРЫ (ОБНОВЛЕННАЯ ВЕРСИЯ)
+        // ========================================================================
+        function getSostOptions(triggerType) {
+            var triggerInfo = triggerTypesList[triggerType];
+            if (!triggerInfo) return null;
+
+            var byteNum = String(triggerInfo.byte_num);
+            var sostMap = TRIGGER_SOST_MAP[byteNum];
+            if (!sostMap) return null;
+
+            var options = [];
+
+            // Проверяем, есть ли у типа mask и shift (новые типы tm_* и exit_*)
+            if (triggerInfo.mask !== undefined && triggerInfo.shift !== undefined) {
+                // Для новых типов используем все значения из карты для этого byte_num
+                for (var value in sostMap) {
+                    if (sostMap.hasOwnProperty(value)) {
+                        options.push({ value: value, label: sostMap[value] });
+                    }
+                }
+            } else if (triggerInfo.bits !== undefined) {
+                // Для старых типов используем битовую маску
+                var bits = triggerInfo.bits;
+                for (var value in sostMap) {
+                    if (sostMap.hasOwnProperty(value)) {
+                        if (bits === 127) {
+                            options.push({ value: value, label: sostMap[value] });
+                        } else if ((parseInt(value) & bits) === parseInt(value) && parseInt(value) !== 0) {
+                            options.push({ value: value, label: sostMap[value] });
+                        }
+                    }
+                }
+                var hasZero = options.some(function(o) { return o.value === '0'; });
+                if (!hasZero && bits !== 127) {
+                    var zeroLabel = 'Исходное состояние';
+                    if (byteNum === '3') {
+                        zeroLabel = 'Все выключено';
+                    } else if (byteNum === '4') {
+                        zeroLabel = 'Дверь закрыта, нет карты';
+                    }
+                    options.unshift({ value: '0', label: zeroLabel });
+                }
+            } else {
+                // Fallback: просто все значения
+                for (var value in sostMap) {
+                    if (sostMap.hasOwnProperty(value)) {
+                        options.push({ value: value, label: sostMap[value] });
+                    }
+                }
+            }
+
+            if (options.length > 0) {
+                options.sort(function(a, b) { return parseInt(a.value) - parseInt(b.value); });
+            }
+
+            return options;
+        }
+
+        function onTriggerTypeChange() {
+            var select = document.getElementById('aliasTriggerSelect');
+            var type = select ? select.value : '';
+            
+            lastTrigger = type;
+            
+            var configGroup = document.getElementById('triggerConfigGroup');
+            var configContent = document.getElementById('triggerConfigContent');
+
+            if (!configGroup || !configContent) return;
+
+            if (!type) {
+                configGroup.style.display = 'none';
+                return;
+            }
+
+            var triggerInfo = triggerTypesList[type];
+            if (!triggerInfo) {
+                configGroup.style.display = 'none';
+                return;
+            }
+
+            configGroup.style.display = 'block';
+
+            if (type.startsWith('va_')) {
+                configContent.innerHTML = `
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Min</label>
+                            <input type="number" id="aliasTriggerMin" value="${lastMin || triggerInfo.min || -20}" step="0.1" style="font-size:13px;padding:4px 8px;width:70px;">
+                        </div>
+                        <div class="form-group">
+                            <label>Max</label>
+                            <input type="number" id="aliasTriggerMax" value="${lastMax || triggerInfo.max || 100}" step="0.1" style="font-size:13px;padding:4px 8px;width:70px;">
+                        </div>
+                        <div class="form-group">
+                            <label>Dev</label>
+                            <input type="number" id="aliasTriggerDev" value="${lastDev || triggerInfo.dev || 10}" step="0.1" style="font-size:13px;padding:4px 8px;width:70px;">
+                        </div>
+                    </div>
+                `;
+            } else {
+                var options = getSostOptions(type);
+                if (options && options.length > 0) {
+                    var html = '<div class="form-group"><label>Sost</label>';
+                    html += '<select id="aliasTriggerSost" style="font-size:13px;padding:4px 8px;width:100%;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#f0f6fc;">';
+                    for (var i = 0; i < options.length; i++) {
+                        var opt = options[i];
+                        var selected = (opt.value === lastSost) ? 'selected' : '';
+                        html += '<option value="' + opt.value + '" ' + selected + '>' + opt.value + ' — ' + opt.label + '</option>';
+                    }
+                    html += '</select></div>';
+                    configContent.innerHTML = html;
+                } else {
+                    configContent.innerHTML = `
+                        <div class="form-group">
+                            <label>Sost</label>
+                            <input type="number" id="aliasTriggerSost" value="${lastSost || 0}" style="font-size:13px;padding:4px 8px;width:100px;">
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        function populateEditTriggerConfig(val) {
+            var configGroup = document.getElementById('editTriggerConfigGroup');
+            var configContent = document.getElementById('editTriggerConfigContent');
+
+            if (!configGroup || !configContent) return;
+
+            var typeSelect = document.getElementById('editAliasTrigger');
+            var type = typeSelect ? typeSelect.value : '';
+            if (!type) {
+                configGroup.style.display = 'none';
+                return;
+            }
+
+            var triggerInfo = triggerTypesList[type];
+            if (!triggerInfo) {
+                configGroup.style.display = 'none';
+                return;
+            }
+
+            configGroup.style.display = 'block';
+
+            if (type.startsWith('va_')) {
+                configContent.innerHTML = `
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Min</label>
+                            <input type="number" id="editAliasTriggerMin" value="${val.min !== undefined ? val.min : triggerInfo.min || -20}" step="0.1" style="font-size:13px;padding:4px 8px;width:70px;">
+                        </div>
+                        <div class="form-group">
+                            <label>Max</label>
+                            <input type="number" id="editAliasTriggerMax" value="${val.max !== undefined ? val.max : triggerInfo.max || 100}" step="0.1" style="font-size:13px;padding:4px 8px;width:70px;">
+                        </div>
+                        <div class="form-group">
+                            <label>Dev</label>
+                            <input type="number" id="editAliasTriggerDev" value="${val.dev !== undefined ? val.dev : triggerInfo.dev || 10}" step="0.1" style="font-size:13px;padding:4px 8px;width:70px;">
+                        </div>
+                    </div>
+                `;
+            } else {
+                var options = getSostOptions(type);
+                var currentSost = val.sost !== undefined ? String(val.sost) : '0';
+                if (options && options.length > 0) {
+                    var html = '<div class="form-group"><label>Sost</label>';
+                    html += '<select id="editAliasTriggerSost" style="font-size:13px;padding:4px 8px;width:100%;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#f0f6fc;">';
+                    for (var i = 0; i < options.length; i++) {
+                        var opt = options[i];
+                        var selected = (opt.value === currentSost) ? 'selected' : '';
+                        html += '<option value="' + opt.value + '" ' + selected + '>' + opt.value + ' — ' + opt.label + '</option>';
+                    }
+                    html += '</select></div>';
+                    configContent.innerHTML = html;
+                } else {
+                    configContent.innerHTML = `
+                        <div class="form-group">
+                            <label>Sost</label>
+                            <input type="number" id="editAliasTriggerSost" value="${currentSost}" style="font-size:13px;padding:4px 8px;width:100px;">
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        function onEditTriggerTypeChange() {
+            var select = document.getElementById('editAliasTrigger');
+            var type = select ? select.value : '';
+            var configGroup = document.getElementById('editTriggerConfigGroup');
+            var configContent = document.getElementById('editTriggerConfigContent');
+
+            if (!configGroup || !configContent) return;
+
+            if (!type) {
+                configGroup.style.display = 'none';
+                return;
+            }
+
+            var triggerInfo = triggerTypesList[type];
+            if (!triggerInfo) {
+                configGroup.style.display = 'none';
+                return;
+            }
+
+            configGroup.style.display = 'block';
+
+            if (type.startsWith('va_')) {
+                configContent.innerHTML = `
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Min</label>
+                            <input type="number" id="editAliasTriggerMin" value="${triggerInfo.min || -20}" step="0.1" style="font-size:13px;padding:4px 8px;width:70px;">
+                        </div>
+                        <div class="form-group">
+                            <label>Max</label>
+                            <input type="number" id="editAliasTriggerMax" value="${triggerInfo.max || 100}" step="0.1" style="font-size:13px;padding:4px 8px;width:70px;">
+                        </div>
+                        <div class="form-group">
+                            <label>Dev</label>
+                            <input type="number" id="editAliasTriggerDev" value="${triggerInfo.dev || 10}" step="0.1" style="font-size:13px;padding:4px 8px;width:70px;">
+                        </div>
+                    </div>
+                `;
+            } else {
+                var options = getSostOptions(type);
+                if (options && options.length > 0) {
+                    var html = '<div class="form-group"><label>Sost</label>';
+                    html += '<select id="editAliasTriggerSost" style="font-size:13px;padding:4px 8px;width:100%;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#f0f6fc;">';
+                    for (var i = 0; i < options.length; i++) {
+                        var opt = options[i];
+                        html += '<option value="' + opt.value + '">' + opt.value + ' — ' + opt.label + '</option>';
+                    }
+                    html += '</select></div>';
+                    configContent.innerHTML = html;
+                } else {
+                    configContent.innerHTML = `
+                        <div class="form-group">
+                            <label>Sost</label>
+                            <input type="number" id="editAliasTriggerSost" value="0" style="font-size:13px;padding:4px 8px;width:100px;">
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        function toggleEditAliasType() {
+            var el = document.getElementById('editAliasType');
+            if (!el) return;
+            var type = el.value;
+
+            var cmdGroup = document.getElementById('editAliasCommand');
+            var trgGroup = document.getElementById('editAliasTrigger');
+            var configGroup = document.getElementById('editTriggerConfigGroup');
+            var invGroup = document.getElementById('editAliasInversion');
+
+            if (cmdGroup) {
+                cmdGroup.parentElement.style.display = type === 'command' ? 'block' : 'none';
+            }
+            if (trgGroup) {
+                trgGroup.parentElement.style.display = type === 'trigger' ? 'block' : 'none';
+            }
+            if (configGroup) {
+                configGroup.style.display = type === 'trigger' ? 'block' : 'none';
+            }
+            if (invGroup) {
+                invGroup.parentElement.style.display = type === 'command' ? 'flex' : 'none';
+            }
+
+            if (type === 'trigger' && document.getElementById('editAliasTrigger')) {
+                onEditTriggerTypeChange();
+            }
+        }
+
+        // ========================================================================
+        // 8. АЛИАСЫ - CRUD
+        // ========================================================================
+        function addAlias() {
+            var key = document.getElementById('aliasKey').value.trim();
+            var type = currentAliasType;
+            var controller = document.getElementById('aliasControllerSelect').value;
+
+            if (!key) { showStatus('Введите название алиаса', 'error'); return; }
+            if (!currentStand) { showStatus('Нет выбранного стенда', 'error'); return; }
+            if (!currentStand.alias) currentStand.alias = {};
+            if (currentStand.alias[key]) { showStatus('Алиас уже существует', 'error'); return; }
+
+            var alias = { type: type };
+
+            // Сохраняем текущие значения
+            lastAliasKey = key;
+
+            if (type === 'command') {
+                var command = document.getElementById('aliasCommandSelect').value;
+                if (!command) { showStatus('Выберите команду', 'error'); return; }
+                alias.command = command;
+                alias.inversion = document.getElementById('aliasInversion').checked ? 'yes' : 'no';
+                lastCommand = command;
+                lastInversion = document.getElementById('aliasInversion').checked;
+            } else {
+                var trigger = document.getElementById('aliasTriggerSelect').value;
+                if (!trigger) { showStatus('Выберите триггер', 'error'); return; }
+                alias.trigger = trigger;
+                lastTrigger = trigger;
+
+                var triggerInfo = triggerTypesList[trigger];
+                if (triggerInfo && triggerInfo.min !== undefined) {
+                    var min = parseFloat(document.getElementById('aliasTriggerMin').value);
+                    var max = parseFloat(document.getElementById('aliasTriggerMax').value);
+                    var dev = parseFloat(document.getElementById('aliasTriggerDev').value);
+                    if (isNaN(min) || isNaN(max) || isNaN(dev)) {
+                        showStatus('Введите корректные значения min, max, dev', 'error');
+                        return;
+                    }
+                    alias.min = min;
+                    alias.max = max;
+                    alias.dev = dev;
+                    lastMin = String(min);
+                    lastMax = String(max);
+                    lastDev = String(dev);
+                } else {
+                    var sostElement = document.getElementById('aliasTriggerSost');
+                    var sost = parseInt(sostElement ? sostElement.value : 0);
+                    if (isNaN(sost)) {
+                        showStatus('Введите корректное значение sost', 'error');
+                        return;
+                    }
+                    alias.sost = sost;
+                    lastSost = String(sost);
+                }
+            }
+
+            if (controller) {
+                alias.controller = controller;
+                lastController = controller;
+            }
+
+            currentStand.alias[key] = alias;
+            
+            // Очищаем только поле "Алиас"
+            document.getElementById('aliasKey').value = '';
+            lastAliasKey = '';
+            
+            // Фокус на поле для следующего ввода
+            document.getElementById('aliasKey').focus();
+
+            renderEditForm(currentStand);
+            showStatus('Алиас "' + key + '" добавлен', 'success');
+        }
+
+        function startEditAlias(key) {
+            editingAliasKey = key;
+            renderEditForm(currentStand);
+        }
+
+        function saveAliasEdit() {
+            var oldKey = editingAliasKey;
+            var newKey = document.getElementById('editAliasKey').value.trim();
+            var type = document.getElementById('editAliasType').value;
+            var controller = document.getElementById('editAliasController').value;
+
+            if (!newKey) { showStatus('Введите название алиаса', 'error'); return; }
+
+            var alias = { type: type };
+
+            if (type === 'command') {
+                var command = document.getElementById('editAliasCommand').value;
+                if (!command) { showStatus('Выберите команду', 'error'); return; }
+                alias.command = command;
+                alias.inversion = document.getElementById('editAliasInversion').checked ? 'yes' : 'no';
+            } else {
+                var trigger = document.getElementById('editAliasTrigger').value;
+                if (!trigger) { showStatus('Выберите триггер', 'error'); return; }
+                alias.trigger = trigger;
+
+                var triggerInfo = triggerTypesList[trigger];
+                if (triggerInfo && triggerInfo.min !== undefined) {
+                    var min = parseFloat(document.getElementById('editAliasTriggerMin').value);
+                    var max = parseFloat(document.getElementById('editAliasTriggerMax').value);
+                    var dev = parseFloat(document.getElementById('editAliasTriggerDev').value);
+                    if (isNaN(min) || isNaN(max) || isNaN(dev)) {
+                        showStatus('Введите корректные значения min, max, dev', 'error');
+                        return;
+                    }
+                    alias.min = min;
+                    alias.max = max;
+                    alias.dev = dev;
+                } else {
+                    var sostElement = document.getElementById('editAliasTriggerSost');
+                    var sost = parseInt(sostElement ? sostElement.value : 0);
+                    if (isNaN(sost)) {
+                        showStatus('Введите корректное значение sost', 'error');
+                        return;
+                    }
+                    alias.sost = sost;
+                }
+            }
+
+            if (controller) alias.controller = controller;
+
+            if (oldKey !== newKey) {
+                delete currentStand.alias[oldKey];
+            }
+            currentStand.alias[newKey] = alias;
+
+            editingAliasKey = null;
+            renderEditForm(currentStand);
+            showStatus('Алиас обновлен', 'success');
+        }
+
+        function cancelAliasEdit() {
+            editingAliasKey = null;
+            renderEditForm(currentStand);
+        }
+
+        function removeAlias(key) {
+            if (!confirm('Удалить алиас "' + key + '"?')) return;
+            delete currentStand.alias[key];
+            renderEditForm(currentStand);
+            showStatus('Алиас удален', 'success');
+        }
+
+        // ========================================================================
+        // 9. СОХРАНЕНИЕ СТЕНДА
+        // ========================================================================
+        function saveStand() {
+            var nameEl = document.getElementById('standName');
+            if (!nameEl) {
+                showStatus('Переключитесь на вкладку "Основное" для сохранения', 'warning');
+                switchView('main');
+                setTimeout(function() { saveStand(); }, 100);
+                return;
+            }
+            
+            var name = nameEl.value.trim();
+            var description = document.getElementById('standDescription').value.trim();
+            var wiring = document.getElementById('standWiring').value.trim();
+
+            if (!name) { showStatus('Введите название стенда', 'error'); return; }
+
+            var controllers = getSelectedControllers();
+            if (controllers.length === 0) { showStatus('Выберите хотя бы один контроллер', 'error'); return; }
+
+            var standData = {
+                name: name,
+                description: description,
+                controllers: controllers,
+                alias: currentStand.alias || {},
+                wiring: wiring ? { file: wiring } : {}
+            };
+
+            sendApiRequest('stand_save', { stand: standData });
+            showStatus('Сохранение...', 'info');
+        }
+
+        // ========================================================================
+        // 10. ЗАПУСК
+        // ========================================================================
+        connectWebSocket();
+    </script>
+</body>
+</html>

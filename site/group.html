@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление группами</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0d1117; color: #c9d1d9; min-height: 100vh; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; background: #161b22; border-radius: 16px; padding: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+        header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px; border-bottom: 1px solid #30363d; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+        header h1 { font-size: 24px; font-weight: 600; color: #f0f6fc; }
+        .status { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #8b949e; }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; transition: background 0.3s; }
+        .status-dot.connected { background: #3fb950; box-shadow: 0 0 8px rgba(63,185,80,0.4); }
+        .status-dot.disconnected { background: #f85149; box-shadow: 0 0 8px rgba(248,81,73,0.4); }
+        
+        .panel { background: #0d1117; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+        .panel h2 { font-size: 16px; font-weight: 500; color: #f0f6fc; margin-bottom: 12px; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        
+        .btn { padding: 6px 14px; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.25s; }
+        .btn-primary { background: #1f6feb; color: #fff; }
+        .btn-primary:hover { background: #388bfd; }
+        .btn-success { background: #238636; color: #fff; }
+        .btn-success:hover { background: #2ea043; }
+        .btn-danger { background: #da3633; color: #fff; }
+        .btn-danger:hover { background: #f85149; }
+        .btn-warning { background: #d29922; color: #fff; }
+        .btn-warning:hover { background: #e3b341; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+        .btn-outline { background: transparent; border: 1px solid #30363d; color: #c9d1d9; }
+        .btn-outline:hover { background: #30363d; }
+        .btn-copy { background: #6f42c1; color: #fff; }
+        .btn-copy:hover { background: #8b5cf6; }
+        
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 500; color: #8b949e; margin-bottom: 4px; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px 12px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; color: #f0f6fc; font-size: 14px; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #58a6ff; }
+        .form-group textarea { resize: vertical; min-height: 60px; font-family: 'Consolas', monospace; }
+        .form-row { display: flex; flex-wrap: wrap; gap: 12px; }
+        .form-row .form-group { flex: 1; min-width: 150px; }
+        
+        .status-bar { padding: 10px 16px; border-radius: 8px; margin-bottom: 12px; }
+        .status-bar.info { background: #0d1f3c; color: #58a6ff; border: 1px solid #1f6feb; }
+        .status-bar.success { background: #0d1f1a; color: #3fb950; border: 1px solid #238636; }
+        .status-bar.error { background: #1f0d0d; color: #f85149; border: 1px solid #da3633; }
+        .status-bar.warning { background: #1f1f0d; color: #d29922; border: 1px solid #d29922; }
+        
+        .three-columns { display: flex; gap: 20px; }
+        .three-columns .left { flex: 0 0 250px; }
+        .three-columns .center { flex: 1; }
+        .three-columns .right { flex: 0 0 250px; }
+        
+        .group-list { max-height: 70vh; overflow-y: auto; }
+        .group-list .group-item { padding: 10px 14px; border-bottom: 1px solid #21262d; cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; }
+        .group-list .group-item:hover { background: #161b22; }
+        .group-list .group-item.active { background: #0d1f3c; border-left: 3px solid #58a6ff; }
+        .group-list .group-item .group-name { color: #f0f6fc; font-weight: 500; }
+        .group-list .group-item .group-actions { display: flex; gap: 4px; }
+        
+        .view-toggle { display: flex; gap: 8px; margin-bottom: 12px; }
+        .view-toggle button { padding: 4px 16px; border: 1px solid #30363d; background: transparent; color: #8b949e; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+        .view-toggle button.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+        .view-toggle button:hover:not(.active) { background: #21262d; }
+        
+        .trigger-item { 
+            background: #161b22; 
+            padding: 8px 12px; 
+            border-radius: 6px; 
+            margin-bottom: 4px; 
+            border-left: 3px solid #d29922; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            flex-wrap: wrap; 
+            gap: 6px; 
+        }
+        .trigger-item .trigger-info { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 4px 12px; 
+            font-size: 13px; 
+            align-items: center;
+        }
+        .trigger-item .trigger-info .name { 
+            color: #58a6ff; 
+            font-weight: 600; 
+        }
+        .trigger-item .trigger-info .type { 
+            color: #d29922; 
+            font-size: 11px; 
+        }
+        .trigger-item .trigger-info .target { 
+            color: #8b949e; 
+            font-size: 12px; 
+        }
+        .trigger-item .trigger-info .params { 
+            color: #3fb950; 
+            font-size: 12px; 
+            background: #0d1117;
+            padding: 0 6px;
+            border-radius: 3px;
+        }
+        .trigger-item .trigger-actions { 
+            display: flex; 
+            gap: 4px; 
+        }
+        .trigger-item .trigger-actions button { 
+            background: none; 
+            border: none; 
+            cursor: pointer; 
+            font-size: 13px; 
+            padding: 0 4px; 
+        }
+        .trigger-item .trigger-actions .del-btn { 
+            color: #f85149; 
+        }
+        .trigger-item .trigger-actions .del-btn:hover { 
+            color: #ff7b72; 
+        }
+        
+        .inherited-alias { 
+            color: #8b949e; 
+            font-size: 13px; 
+            padding: 6px 10px; 
+            background: #0d1117; 
+            border-radius: 4px; 
+            border: 1px solid #30363d; 
+            margin-bottom: 4px; 
+        }
+        .inherited-alias .alias-name { 
+            color: #58a6ff; 
+        }
+        .inherited-alias .alias-type { 
+            color: #d29922; 
+            font-size: 11px; 
+        }
+        .inherited-alias .alias-target { 
+            color: #8b949e; 
+            font-size: 12px; 
+        }
+        .inherited-alias .alias-params { 
+            color: #3fb950; 
+            font-size: 11px; 
+        }
+        
+        .alias-trigger-select-row { 
+            display: flex; 
+            gap: 8px; 
+            align-items: flex-end; 
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .alias-trigger-select-row .form-group { 
+            flex: 1; 
+            min-width: 120px; 
+            margin-bottom: 0; 
+        }
+        .alias-trigger-select-row .form-group select { 
+            padding: 6px 10px; 
+            font-size: 13px; 
+        }
+        .alias-trigger-select-row .btn { 
+            padding: 6px 14px; 
+            font-size: 13px; 
+            align-self: flex-end; 
+        }
+        
+        .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; }
+        .badge-ok { background: #1a7f37; color: #d4edda; }
+        .badge-no { background: #7a1f1f; color: #f8d7da; }
+        .badge-info { background: #1a3d7a; color: #d1ecf1; }
+        
+        .empty-message { color: #8b949e; text-align: center; padding: 20px 0; }
+        
+        .right-panel .btn { width: 100%; margin-bottom: 6px; }
+        .right-panel .btn:last-child { margin-bottom: 0; }
+        
+        .triggers-list-container { max-height: 300px; overflow-y: auto; }
+        
+        .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn-row .btn { flex: 1; min-width: 100px; text-align: center; }
+        
+        @media (max-width: 1024px) {
+            .three-columns { flex-direction: column; }
+            .three-columns .left { flex: 1; }
+            .three-columns .right { flex: 1; }
+        }
+        @media (max-width: 768px) {
+            .three-columns { flex-direction: column; }
+            .three-columns .left { flex: 1; }
+            .three-columns .right { flex: 1; }
+            .form-row .form-group { min-width: 100%; }
+            .alias-trigger-select-row { flex-wrap: wrap; }
+            .alias-trigger-select-row .form-group { min-width: 100%; }
+            .btn-row { flex-direction: column; }
+            .btn-row .btn { flex: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📁 Управление группами</h1>
+            <div class="status">
+                <span class="status-dot disconnected" id="statusDot"></span>
+                <span id="statusText">Отключено</span>
+            </div>
+        </header>
+
+        <div id="statusBar" class="status-bar info">Загрузка данных...</div>
+
+        <div class="three-columns">
+            <!-- Левая колонка - список групп -->
+            <div class="left">
+                <div class="panel">
+                    <div class="flex-between">
+                        <h2>📋 Группы</h2>
+                        <div class="btn-row" style="flex:1;justify-content:flex-end;">
+                            <button class="btn btn-success btn-sm" onclick="createGroup()" id="newGroupBtn" disabled>➕ Новая</button>
+                            <button class="btn btn-copy btn-sm" onclick="copyGroup()" id="copyGroupBtn" disabled>📋 Копировать</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Выберите стенд</label>
+                        <select id="standSelect" onchange="onStandChange()">
+                            <option value="">-- Выберите стенд --</option>
+                        </select>
+                    </div>
+                    <div id="groupList" class="group-list">
+                        <div class="empty-message">Выберите стенд</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Центральная колонка - редактирование -->
+            <div class="center">
+                <div class="panel">
+                    <div class="flex-between">
+                        <h2 id="editTitle">📝 Выберите группу для редактирования</h2>
+                    </div>
+                    <div id="editContent">
+                        <div class="empty-message">Выберите группу из списка слева</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Правая колонка - кнопки управления -->
+            <div class="right">
+                <div class="panel right-panel">
+                    <h2>⚙️ Управление</h2>
+                    <button class="btn btn-success" onclick="saveGroup()" id="saveBtn" disabled>💾 Сохранить</button>
+                    <button class="btn btn-danger" onclick="deleteCurrentGroup()" id="deleteBtn" disabled>🗑️ Удалить группу</button>
+                    <button class="btn btn-warning" onclick="switchView('main')" id="mainViewBtn">📝 Основное</button>
+                    <button class="btn btn-primary" onclick="switchView('triggers')" id="triggersViewBtn">🔔 Триггеры (<span id="triggerCount">0</span>)</button>
+                    <button class="btn btn-outline" onclick="loadGroups()">🔄 Обновить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========================================================================
+        // 1. КОНСТАНТЫ И ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+        // ========================================================================
+        const WS_API_KEY = '1356_api';
+        let ws = null;
+        let isConnected = false;
+        let standsList = [];
+        let currentStand = null;
+        let currentGroup = null;
+        let groupsList = [];
+        let aliasMap = {};
+        let currentView = 'main';
+        let isRendering = false;
+        let triggerTypesList = {};
+        let currentStandName = '';
+
+        // ===== ОБНОВЛЕННЫЙ TRIGGER_SOST_MAP =====
+        const TRIGGER_SOST_MAP = {
+            '3': { 
+                '1': 'LED (зеленый)', 
+                '2': 'ZUMM (красный)', 
+                '4': 'Внутренний звук', 
+                '8': 'LOCK (замок)' 
+            },
+            '4': {
+                '0': 'Исходное состояние',
+                '1': 'Закорочен (кнопка)',
+                '2': 'Обнаружена карта',
+                '3': 'Активный 0 (выдается 0)',
+                '4': 'TM - обнаружена карта (старое)',
+                '8': 'Встроенный считыватель - карта',
+                '16': 'Встроенный считыватель - активный 0',
+                '32': 'DOOR (дверь) - открыта'
+            },
+            '11': { '0': '0 В', '127': 'макс. напряжение' },
+            '12': { '0': '0 В', '127': 'макс. напряжение' },
+            '13': { '0': '0 В', '127': 'макс. напряжение' },
+            '14': { '0': '0 В', '127': 'макс. напряжение' }
+        };
+
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const statusBar = document.getElementById('statusBar');
+
+        // ========================================================================
+        // 2. WEB SOCKET
+        // ========================================================================
+        function showStatus(msg, type = 'info') {
+            statusBar.textContent = msg;
+            statusBar.className = 'status-bar ' + type;
+        }
+
+        function connectWebSocket() {
+            const host = window.location.hostname;
+            const wsUrl = `ws://${host}:9090`;
+            try {
+                ws = new WebSocket(wsUrl);
+                ws.onopen = function() {
+                    isConnected = true;
+                    statusDot.className = 'status-dot connected';
+                    statusText.textContent = 'Подключено';
+                    showStatus('Соединение установлено', 'success');
+                    loadStands();
+                    loadTriggerTypes();
+                };
+                ws.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        console.log('WS получено:', data);
+                        handleIncomingMessage(data);
+                    } catch (e) {
+                        console.error('Ошибка парсинга:', e);
+                    }
+                };
+                ws.onclose = function() {
+                    isConnected = false;
+                    statusDot.className = 'status-dot disconnected';
+                    statusText.textContent = 'Отключено';
+                    showStatus('Соединение потеряно', 'error');
+                    setTimeout(connectWebSocket, 3000);
+                };
+                ws.onerror = function(error) {
+                    console.error('WebSocket ошибка:', error);
+                };
+            } catch (e) {
+                console.error('Ошибка подключения:', e);
+                setTimeout(connectWebSocket, 3000);
+            }
+        }
+
+        function sendApiRequest(api, params = {}) {
+            if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) {
+                console.warn('WebSocket не подключен');
+                return false;
+            }
+            const message = { api_key: WS_API_KEY, api: api, ...params };
+            ws.send(JSON.stringify(message));
+            return true;
+        }
+
+        // ========================================================================
+        // 3. ОБРАБОТКА ВХОДЯЩИХ СООБЩЕНИЙ
+        // ========================================================================
+        function handleIncomingMessage(data) {
+            if (data.stands) {
+                standsList = data.stands;
+                renderStandSelect();
+                return;
+            }
+
+            if (data.stand) {
+                currentStand = data.stand;
+                aliasMap = data.stand.alias || {};
+                groupsList = [];
+                if (data.stand.groups) {
+                    groupsList = data.stand.groups;
+                }
+                renderGroupList();
+                document.getElementById('newGroupBtn').disabled = false;
+                document.getElementById('copyGroupBtn').disabled = false;
+                return;
+            }
+
+            if (data.group) {
+                currentGroup = data.group;
+                renderEditForm(data.group);
+                document.getElementById('saveBtn').disabled = false;
+                document.getElementById('deleteBtn').disabled = false;
+                return;
+            }
+
+            if (data.api === 'triggers_type' && data.list) {
+                triggerTypesList = data.list;
+                if (currentGroup && currentView === 'triggers') {
+                    renderEditForm(currentGroup);
+                }
+                return;
+            }
+
+            if (data.api === 'group_save' || data.api === 'group_delete') {
+                if (data.ok) {
+                    showStatus(data.info || 'Операция выполнена', 'success');
+                    loadGroups();
+                } else {
+                    showStatus('Ошибка: ' + (data.info || 'неизвестная'), 'error');
+                }
+                return;
+            }
+
+            if (data.api === 'copy_group') {
+                if (data.ok) {
+                    showStatus(data.info || 'Группа скопирована', 'success');
+                    loadGroups();
+                } else {
+                    showStatus('Ошибка копирования: ' + (data.info || 'неизвестная'), 'error');
+                }
+                return;
+            }
+
+            if (data.info === 'wrong api' || data.info === 'wrong api_key') {
+                showStatus('Ошибка API: ' + data.info, 'error');
+                return;
+            }
+        }
+
+        // ========================================================================
+        // 4. ЗАГРУЗКА ДАННЫХ
+        // ========================================================================
+        function loadStands() {
+            sendApiRequest('stands_list', {});
+        }
+
+        function loadGroups() {
+            const stand = document.getElementById('standSelect').value;
+            if (stand) {
+                currentStandName = stand;
+                sendApiRequest('stand_get', { stand_name: stand });
+            }
+        }
+
+        function loadGroupData(standName, groupName) {
+            if (standName && groupName) {
+                sendApiRequest('group_get', { stand_name: standName, group_name: groupName });
+            }
+        }
+
+        function loadTriggerTypes() {
+            sendApiRequest('triggers_type', {});
+        }
+
+        // ========================================================================
+        // 5. РЕНДЕРИНГ
+        // ========================================================================
+        function renderStandSelect() {
+            const select = document.getElementById('standSelect');
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">-- Выберите стенд --</option>';
+            for (const s of standsList) {
+                const option = document.createElement('option');
+                option.value = s.path;
+                option.textContent = s.name;
+                if (s.path === currentValue) option.selected = true;
+                select.appendChild(option);
+            }
+            if (currentValue && select.value !== currentValue) {
+                if (standsList.length > 0) {
+                    select.value = standsList[0].path;
+                    onStandChange();
+                }
+            }
+        }
+
+        function renderGroupList() {
+            const container = document.getElementById('groupList');
+            if (!groupsList || groupsList.length === 0) {
+                container.innerHTML = '<div class="empty-message">Нет групп</div>';
+                return;
+            }
+            let html = '';
+            for (const g of groupsList) {
+                const isActive = currentGroup && currentGroup.name === g.name;
+                const checksCount = g.checks || 0;
+                const result = g.result || null;
+                let resultBadge = '';
+                if (result) {
+                    const ok = result.order === 'ok' && result.time === 'ok';
+                    resultBadge = `<span class="badge ${ok ? 'badge-ok' : 'badge-no'}">${ok ? '✅' : '❌'}</span>`;
+                }
+                html += `<div class="group-item${isActive ? ' active' : ''}" onclick="selectGroup('${g.path}')">`;
+                html += `    <span class="group-name">${g.name} ${resultBadge}</span>`;
+                html += `    <div class="group-actions">`;
+                html += `        <span style="font-size:11px;color:#8b949e;margin-right:8px;">${checksCount} проверок</span>`;
+                html += `        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteGroup('${g.path}')">🗑️</button>`;
+                html += `    </div>`;
+                html += '</div>';
+            }
+            container.innerHTML = html;
+        }
+
+        function switchView(view) {
+            currentView = view;
+            document.getElementById('mainViewBtn').className = 'btn' + (view === 'main' ? ' btn-warning' : ' btn-outline');
+            document.getElementById('triggersViewBtn').className = 'btn' + (view === 'triggers' ? ' btn-primary' : ' btn-outline');
+            if (currentGroup) {
+                renderEditForm(currentGroup);
+            }
+        }
+
+        function renderEditForm(group) {
+            isRendering = true;
+            const container = document.getElementById('editContent');
+            const isNew = !group || !group.name;
+
+            if (!group) {
+                container.innerHTML = '<div class="empty-message">Выберите группу из списка слева</div>';
+                document.getElementById('editTitle').textContent = '📝 Выберите группу для редактирования';
+                isRendering = false;
+                return;
+            }
+
+            // Сохраняем данные для сохранения с любой вкладки
+            if (currentView === 'main') {
+                const nameEl = document.getElementById('groupName');
+                const descEl = document.getElementById('groupDescription');
+                if (nameEl) currentGroup.name = nameEl.value.trim();
+                if (descEl) currentGroup.description = descEl.value.trim();
+            }
+
+            const triggers = group.triggers || [];
+            document.getElementById('triggerCount').textContent = triggers.length;
+
+            let html = '';
+
+            // Вкладки
+            html += '<div class="view-toggle">';
+            html += '    <button class="btn ' + (currentView === 'main' ? 'btn-warning' : 'btn-outline') + '" onclick="switchView(\'main\')">📝 Основное</button>';
+            html += '    <button class="btn ' + (currentView === 'triggers' ? 'btn-primary' : 'btn-outline') + '" onclick="switchView(\'triggers\')">🔔 Триггеры (' + triggers.length + ')</button>';
+            html += '</div>';
+
+            if (currentView === 'main') {
+                // Основная информация
+                html += '<div class="form-group">';
+                html += '    <label>Название группы *</label>';
+                html += '    <input type="text" id="groupName" value="' + (group.name || '') + '" placeholder="Введите название">';
+                html += '</div>';
+                html += '<div class="form-group">';
+                html += '    <label>Описание</label>';
+                html += '    <textarea id="groupDescription" rows="2" placeholder="Описание группы">' + (group.description || '') + '</textarea>';
+                html += '</div>';
+
+                // Наследуемые алиасы (только для просмотра)
+                html += '<div class="form-group">';
+                html += '    <label>Наследуемые алиасы (из стенда) <span style="color:#8b949e;font-weight:400;font-size:12px;">— только для просмотра</span></label>';
+                html += '    <div style="max-height:150px;overflow-y:auto;padding:4px;background:#0d1117;border-radius:6px;border:1px solid #30363d;">';
+                const aliasKeys = Object.keys(aliasMap);
+                if (aliasKeys.length === 0) {
+                    html += '    <div style="color:#8b949e;font-size:13px;padding:4px;">Нет алиасов</div>';
+                } else {
+                    for (const key of aliasKeys) {
+                        const val = aliasMap[key];
+                        const type = val.type || 'command';
+                        const target = val.command || val.trigger || '';
+                        let paramsStr = '';
+                        if (val.sost !== undefined) paramsStr += `sost:${val.sost} `;
+                        if (val.min !== undefined) paramsStr += `min:${val.min} `;
+                        if (val.max !== undefined) paramsStr += `max:${val.max} `;
+                        if (val.dev !== undefined) paramsStr += `dev:${val.dev}`;
+                        
+                        // Добавляем описание состояния для новых типов
+                        let sostDesc = '';
+                        if (val.sost !== undefined && val.trigger) {
+                            const triggerInfo = triggerTypesList[val.trigger];
+                            if (triggerInfo) {
+                                const byteNum = String(triggerInfo.byte_num);
+                                if (TRIGGER_SOST_MAP[byteNum] && TRIGGER_SOST_MAP[byteNum][String(val.sost)]) {
+                                    sostDesc = ' (' + TRIGGER_SOST_MAP[byteNum][String(val.sost)] + ')';
+                                }
+                            }
+                        }
+                        
+                        html += `<div class="inherited-alias">
+                            <span class="alias-name">${key}</span>
+                            <span class="alias-type">${type === 'command' ? '⚡ команда' : '🔔 триггер'}</span>
+                            <span class="alias-target">→ ${target}</span>
+                            ${paramsStr ? `<span class="alias-params">${paramsStr.trim()}${sostDesc}</span>` : ''}
+                            ${val.controller ? `<span style="color:#8b949e;font-size:11px;">контроллер: ${val.controller}</span>` : ''}
+                        </div>`;
+                    }
+                }
+                html += '    </div>';
+                html += '</div>';
+            } else {
+                // Вкладка Триггеры
+                html += renderTriggersTab(group);
+            }
+
+            container.innerHTML = html;
+            document.getElementById('editTitle').textContent = isNew ? '📝 Новая группа' : '📝 ' + group.name;
+
+            isRendering = false;
+        }
+
+        function renderTriggersTab(group) {
+            const triggers = group.triggers || [];
+            const aliasTriggers = {};
+            for (const key in aliasMap) {
+                if (aliasMap[key].type === 'trigger') {
+                    aliasTriggers[key] = aliasMap[key];
+                }
+            }
+
+            let html = '';
+
+            // Строка выбора алиаса
+            html += '<div class="alias-trigger-select-row">';
+            html += '    <div class="form-group">';
+            html += '        <label>Алиас-триггер</label>';
+            html += '        <select id="addTriggerSelect" style="font-size:13px;padding:6px 10px;">';
+            html += '            <option value="">-- Выберите триггер --</option>';
+            const existingTypes = triggers.map(t => t.type);
+            for (const key in aliasTriggers) {
+                if (!existingTypes.includes(key)) {
+                    const val = aliasTriggers[key];
+                    const target = val.trigger || key;
+                    let paramsDesc = '';
+                    if (val.sost !== undefined) {
+                        const triggerInfo = triggerTypesList[val.trigger];
+                        if (triggerInfo) {
+                            const byteNum = String(triggerInfo.byte_num);
+                            if (TRIGGER_SOST_MAP[byteNum] && TRIGGER_SOST_MAP[byteNum][String(val.sost)]) {
+                                paramsDesc += ` sost:${val.sost} (${TRIGGER_SOST_MAP[byteNum][String(val.sost)]})`;
+                            } else {
+                                paramsDesc += ` sost:${val.sost}`;
+                            }
+                        } else {
+                            paramsDesc += ` sost:${val.sost}`;
+                        }
+                    }
+                    if (val.min !== undefined) paramsDesc += ` min:${val.min}`;
+                    if (val.max !== undefined) paramsDesc += ` max:${val.max}`;
+                    if (val.dev !== undefined) paramsDesc += ` dev:${val.dev}`;
+                    html += `            <option value="${key}">${key} → ${target}${paramsDesc}</option>`;
+                }
+            }
+            if (Object.keys(aliasTriggers).length === 0) {
+                html += '            <option value="" disabled>Нет алиасов-триггеров в стенде</option>';
+            }
+            html += '        </select>';
+            html += '    </div>';
+            html += '    <button class="btn btn-sm btn-primary" onclick="addTrigger()">➕ Добавить</button>';
+            html += '</div>';
+
+            // Список добавленных триггеров
+            html += '<div class="triggers-list-container">';
+            if (triggers.length === 0) {
+                html += '<div style="color:#8b949e;font-size:13px;padding:8px;text-align:center;">Нет добавленных триггеров</div>';
+            } else {
+                for (let i = 0; i < triggers.length; i++) {
+                    const tr = triggers[i];
+                    const aliasInfo = aliasMap[tr.type] || {};
+                    const target = aliasInfo.trigger || tr.type;
+                    let paramsStr = '';
+                    if (tr.sost !== undefined) {
+                        const triggerInfo = triggerTypesList[tr.trigger || target];
+                        if (triggerInfo) {
+                            const byteNum = String(triggerInfo.byte_num);
+                            if (TRIGGER_SOST_MAP[byteNum] && TRIGGER_SOST_MAP[byteNum][String(tr.sost)]) {
+                                paramsStr += `sost:${tr.sost} (${TRIGGER_SOST_MAP[byteNum][String(tr.sost)]}) `;
+                            } else {
+                                paramsStr += `sost:${tr.sost} `;
+                            }
+                        } else {
+                            paramsStr += `sost:${tr.sost} `;
+                        }
+                    }
+                    if (tr.min !== undefined) paramsStr += `min:${tr.min} `;
+                    if (tr.max !== undefined) paramsStr += `max:${tr.max} `;
+                    if (tr.dev !== undefined) paramsStr += `dev:${tr.dev}`;
+                    
+                    html += `<div class="trigger-item">
+                        <div class="trigger-info">
+                            <span class="name">${tr.type}</span>
+                            <span class="type">🔔 триггер</span>
+                            <span class="target">→ ${target}</span>
+                            ${paramsStr ? `<span class="params">${paramsStr.trim()}</span>` : ''}
+                        </div>
+                        <div class="trigger-actions">
+                            <button class="del-btn" onclick="removeTrigger(${i})">✕</button>
+                        </div>
+                    </div>`;
+                }
+            }
+            html += '</div>';
+
+            return html;
+        }
+
+        // ========================================================================
+        // 6. УПРАВЛЕНИЕ ГРУППАМИ
+        // ========================================================================
+        function onStandChange() {
+            const stand = document.getElementById('standSelect').value;
+            if (stand) {
+                currentStandName = stand;
+                sendApiRequest('stand_get', { stand_name: stand });
+                currentGroup = null;
+                document.getElementById('editContent').innerHTML = '<div class="empty-message">Выберите группу из списка слева</div>';
+                document.getElementById('editTitle').textContent = '📝 Выберите группу для редактирования';
+                document.getElementById('saveBtn').disabled = true;
+                document.getElementById('deleteBtn').disabled = true;
+            } else {
+                document.getElementById('groupList').innerHTML = '<div class="empty-message">Выберите стенд</div>';
+                document.getElementById('newGroupBtn').disabled = true;
+                document.getElementById('copyGroupBtn').disabled = true;
+            }
+        }
+
+        function selectGroup(path) {
+            const stand = document.getElementById('standSelect').value;
+            if (stand && path) {
+                loadGroupData(stand, path);
+            }
+        }
+
+        function createGroup() {
+            const stand = document.getElementById('standSelect').value;
+            if (!stand) {
+                showStatus('Выберите стенд', 'error');
+                return;
+            }
+            currentGroup = { name: '', description: '', triggers: [], checks: [] };
+            currentView = 'main';
+            document.getElementById('editTitle').textContent = '📝 Новая группа';
+            renderEditForm(currentGroup);
+            document.getElementById('saveBtn').disabled = false;
+            document.getElementById('deleteBtn').disabled = true;
+        }
+
+        function copyGroup() {
+            const stand = document.getElementById('standSelect').value;
+            const currentGroupName = currentGroup ? currentGroup.name : '';
+            
+            if (!stand) {
+                showStatus('Выберите стенд', 'error');
+                return;
+            }
+            if (!currentGroupName) {
+                showStatus('Выберите группу для копирования', 'error');
+                return;
+            }
+
+            const newName = prompt('Введите имя для новой группы:', currentGroupName + '_copy');
+            if (!newName) {
+                showStatus('Отменено', 'info');
+                return;
+            }
+
+            sendApiRequest('copy_group', {
+                stand_name: stand,
+                source_name: currentGroupName,
+                new_name: newName
+            });
+            showStatus('Копирование группы...', 'info');
+        }
+
+        function deleteCurrentGroup() {
+            if (!currentGroup || !currentGroup.name) return;
+            if (!confirm('Удалить группу "' + currentGroup.name + '"?')) return;
+            const stand = document.getElementById('standSelect').value;
+            sendApiRequest('group_delete', {
+                stand_name: stand,
+                group_name: currentGroup.name
+            });
+        }
+
+        function saveGroup() {
+            const stand = document.getElementById('standSelect').value;
+            
+            // Проверяем, на какой вкладке находимся
+            const nameEl = document.getElementById('groupName');
+            if (!nameEl) {
+                showStatus('Переключитесь на вкладку "Основное" для сохранения', 'warning');
+                switchView('main');
+                setTimeout(function() { saveGroup(); }, 100);
+                return;
+            }
+            
+            const name = nameEl.value.trim();
+            const description = document.getElementById('groupDescription').value.trim();
+
+            if (!stand) {
+                showStatus('Выберите стенд', 'error');
+                return;
+            }
+            if (!name) {
+                showStatus('Введите название группы', 'error');
+                return;
+            }
+
+            // Собираем триггеры из currentGroup
+            const triggers = currentGroup.triggers || [];
+
+            const groupData = {
+                name: name,
+                description: description,
+                triggers: triggers,
+                checks: []
+            };
+
+            sendApiRequest('group_save', {
+                stand_name: stand,
+                group: groupData
+            });
+            showStatus('Сохранение группы...', 'info');
+        }
+
+        // ========================================================================
+        // 7. УПРАВЛЕНИЕ ТРИГГЕРАМИ
+        // ========================================================================
+        function addTrigger() {
+            const select = document.getElementById('addTriggerSelect');
+            const aliasName = select.value;
+            if (!aliasName) {
+                showStatus('Выберите триггер из списка', 'error');
+                return;
+            }
+
+            if (!currentGroup) {
+                showStatus('Нет выбранной группы', 'error');
+                return;
+            }
+            if (!currentGroup.triggers) currentGroup.triggers = [];
+
+            // Проверяем, есть ли уже такой триггер
+            if (currentGroup.triggers.some(t => t.type === aliasName)) {
+                showStatus('Триггер уже добавлен', 'warning');
+                return;
+            }
+
+            // Получаем полную информацию из алиаса
+            const aliasInfo = aliasMap[aliasName] || {};
+            const triggerObj = {
+                type: aliasName,
+                trigger: aliasInfo.trigger || aliasName
+            };
+            if (aliasInfo.sost !== undefined) triggerObj.sost = aliasInfo.sost;
+            if (aliasInfo.min !== undefined) triggerObj.min = aliasInfo.min;
+            if (aliasInfo.max !== undefined) triggerObj.max = aliasInfo.max;
+            if (aliasInfo.dev !== undefined) triggerObj.dev = aliasInfo.dev;
+            if (aliasInfo.controller) triggerObj.controller = aliasInfo.controller;
+
+            currentGroup.triggers.push(triggerObj);
+
+            // Удаляем из выпадающего списка
+            const option = select.querySelector(`option[value="${aliasName}"]`);
+            if (option) option.remove();
+
+            renderEditForm(currentGroup);
+            showStatus('Триггер "' + aliasName + '" добавлен', 'success');
+        }
+
+        function removeTrigger(index) {
+            if (!currentGroup || !currentGroup.triggers) return;
+            const removed = currentGroup.triggers[index];
+            currentGroup.triggers.splice(index, 1);
+            
+            // Возвращаем в выпадающий список
+            const select = document.getElementById('addTriggerSelect');
+            if (select && removed) {
+                const option = document.createElement('option');
+                option.value = removed.type;
+                const aliasInfo = aliasMap[removed.type] || {};
+                const target = aliasInfo.trigger || removed.type;
+                let paramsDesc = '';
+                if (removed.sost !== undefined) {
+                    const triggerInfo = triggerTypesList[removed.trigger || target];
+                    if (triggerInfo) {
+                        const byteNum = String(triggerInfo.byte_num);
+                        if (TRIGGER_SOST_MAP[byteNum] && TRIGGER_SOST_MAP[byteNum][String(removed.sost)]) {
+                            paramsDesc += ` sost:${removed.sost} (${TRIGGER_SOST_MAP[byteNum][String(removed.sost)]})`;
+                        } else {
+                            paramsDesc += ` sost:${removed.sost}`;
+                        }
+                    } else {
+                        paramsDesc += ` sost:${removed.sost}`;
+                    }
+                }
+                if (removed.min !== undefined) paramsDesc += ` min:${removed.min}`;
+                if (removed.max !== undefined) paramsDesc += ` max:${removed.max}`;
+                if (removed.dev !== undefined) paramsDesc += ` dev:${removed.dev}`;
+                option.textContent = removed.type + ' → ' + target + paramsDesc;
+                select.appendChild(option);
+                
+                // Сортируем опции
+                const options = Array.from(select.options);
+                const firstOption = options.shift();
+                options.sort((a, b) => a.text.localeCompare(b.text));
+                select.innerHTML = '';
+                select.appendChild(firstOption);
+                for (const opt of options) {
+                    select.appendChild(opt);
+                }
+            }
+
+            renderEditForm(currentGroup);
+            showStatus('Триггер удален', 'success');
+        }
+
+        // ========================================================================
+        // 8. ЗАПУСК
+        // ========================================================================
+        connectWebSocket();
+        
+        setInterval(() => {
+            if (isConnected) {
+                loadStands();
+            }
+        }, 30000);
+    </script>
+</body>
+</html>

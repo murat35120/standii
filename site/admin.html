@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Администрирование</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0d1117; color: #c9d1d9; min-height: 100vh; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; background: #161b22; border-radius: 16px; padding: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+        header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px; border-bottom: 1px solid #30363d; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+        header h1 { font-size: 24px; font-weight: 600; color: #f0f6fc; }
+        header .back-link { color: #58a6ff; text-decoration: none; font-size: 14px; }
+        header .back-link:hover { text-decoration: underline; }
+        .status { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #8b949e; }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; transition: background 0.3s; }
+        .status-dot.connected { background: #3fb950; box-shadow: 0 0 8px rgba(63,185,80,0.4); }
+        .status-dot.disconnected { background: #f85149; box-shadow: 0 0 8px rgba(248,81,73,0.4); }
+        .panel { background: #0d1117; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+        .panel h2 { font-size: 16px; font-weight: 500; color: #f0f6fc; margin-bottom: 12px; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+
+        .btn { padding: 6px 14px; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.25s; }
+        .btn-primary { background: #1f6feb; color: #fff; }
+        .btn-primary:hover { background: #388bfd; }
+        .btn-success { background: #238636; color: #fff; }
+        .btn-success:hover { background: #2ea043; }
+        .btn-danger { background: #da3633; color: #fff; }
+        .btn-danger:hover { background: #f85149; }
+        .btn-warning { background: #d29922; color: #fff; }
+        .btn-warning:hover { background: #e3b341; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #21262d; }
+        th { color: #8b949e; font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        td { color: #c9d1d9; }
+        tr:hover td { background: #161b22; }
+        .empty-message { color: #8b949e; text-align: center; padding: 20px 0; }
+
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 500; color: #8b949e; margin-bottom: 4px; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px 12px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; color: #f0f6fc; font-size: 14px; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #58a6ff; }
+        .form-group textarea { resize: vertical; min-height: 60px; font-family: 'Consolas', monospace; }
+        .form-row { display: flex; flex-wrap: wrap; gap: 12px; }
+        .form-row .form-group { flex: 1; min-width: 150px; }
+
+        .status-bar { padding: 10px 16px; border-radius: 8px; margin-bottom: 12px; }
+        .status-bar.info { background: #0d1f3c; color: #58a6ff; border: 1px solid #1f6feb; }
+        .status-bar.success { background: #0d1f1a; color: #3fb950; border: 1px solid #238636; }
+        .status-bar.error { background: #1f0d0d; color: #f85149; border: 1px solid #da3633; }
+        .status-bar.warning { background: #1f1a0d; color: #d29922; border: 1px solid #d29922; }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: #161b22; border-radius: 12px; padding: 24px; max-width: 700px; width: 90%; max-height: 80vh; overflow-y: auto; border: 1px solid #30363d; }
+        .modal-content h3 { color: #f0f6fc; margin-bottom: 16px; }
+        .close-btn { float: right; font-size: 24px; cursor: pointer; color: #8b949e; background: none; border: none; }
+        .close-btn:hover { color: #f0f6fc; }
+
+        .speed-selector { display: flex; gap: 10px; align-items: center; }
+        .speed-selector select { padding: 6px 12px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; color: #f0f6fc; font-size: 14px; }
+
+        .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; }
+        .badge-warning { background: #7a5d1f; color: #fff3cd; }
+        .badge-success { background: #1a7f37; color: #d4edda; }
+        .badge-danger { background: #7a1f1f; color: #fdd; }
+        .status-on { color: #3fb950; font-weight: bold; }
+        .status-off { color: #f85149; font-weight: bold; }
+        .status-usb { color: #58a6ff; font-weight: bold; }
+
+        .usb-info { font-size: 12px; color: #8b949e; margin-top: 4px; }
+
+        @media (max-width: 768px) { .form-row .form-group { min-width: 100%; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>⚙️ Администрирование</h1>
+                <a href="/" class="back-link">← На главную</a>
+            </div>
+            <div class="status">
+                <span class="status-dot disconnected" id="statusDot"></span>
+                <span id="statusText">Отключено</span>
+            </div>
+        </header>
+
+        <div id="statusBar" class="status-bar info">Загрузка данных...</div>
+
+        <!-- Секция Контроллеры -->
+        <div class="panel">
+            <div class="flex-between">
+                <h2>📡 Контроллеры</h2>
+                <button class="btn btn-primary btn-sm" onclick="refreshControllers()">🔄 Обновить</button>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>ID</th><th>Тип</th><th>Номер</th><th>Адрес</th><th>Версия</th><th>Статус</th><th>Триггеры</th></tr></thead>
+                    <tbody id="controllersBody"><tr><td colspan="7" class="empty-message">Загрузка...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Секция Ethernet-конвертеры -->
+        <div class="panel">
+            <div class="flex-between">
+                <h2>🔌 Ethernet-конвертеры</h2>
+                <button class="btn btn-primary btn-sm" onclick="refreshConverters()">🔄 Обновить</button>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>#</th><th>Модель</th><th>Номер</th><th>Версия</th><th>Статус</th><th>Адресов</th></tr></thead>
+                    <tbody id="convertersBody"><tr><td colspan="6" class="empty-message">Загрузка...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Новая секция USB-RS485 конвертеры -->
+        <div class="panel">
+            <div class="flex-between">
+                <h2>🔌 USB-RS485 конвертеры (Z-397 Guard)</h2>
+                <div>
+                    <button class="btn btn-primary btn-sm" onclick="scanUsb()">🔍 Поиск</button>
+                    <button class="btn btn-success btn-sm" onclick="refreshUsbList()">🔄 Обновить</button>
+                </div>
+            </div>
+            <div id="usbStatus" class="status-bar info">Нажмите "Поиск" для сканирования USB-устройств</div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Порт</th><th>S/N</th><th>Версия</th><th>Модель</th><th>Статус</th><th>Действия</th></tr></thead>
+                    <tbody id="usbBody"><tr><td colspan="6" class="empty-message">Нет данных</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Секция Стенды -->
+        <div class="panel">
+            <div class="flex-between">
+                <h2>🏗️ Стенды</h2>
+                <button class="btn btn-success btn-sm" onclick="showStandModal()">➕ Добавить стенд</button>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Название</th><th>Описание</th><th>Групп</th><th>Действия</th></tr></thead>
+                    <tbody id="standsBody"><tr><td colspan="4" class="empty-message">Загрузка...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для стенда -->
+    <div id="standModal" class="modal">
+        <div class="modal-content">
+            <button class="close-btn" onclick="closeModal('standModal')">&times;</button>
+            <h3 id="standModalTitle">Добавить стенд</h3>
+            <input type="hidden" id="standEditPath">
+            <div class="form-group">
+                <label>Название стенда *</label>
+                <input type="text" id="standName" placeholder="Введите название">
+            </div>
+            <div class="form-group">
+                <label>Описание</label>
+                <textarea id="standDescription" placeholder="Описание стенда"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Контроллеры (номера через запятую)</label>
+                <input type="text" id="standControllers" placeholder="123, 456, 789">
+            </div>
+            <div class="form-group">
+                <label>Схема подключения (файл в wirings/)</label>
+                <input type="text" id="standWiring" placeholder="scheme.png">
+            </div>
+            <div class="form-group">
+                <label>Алиасы (JSON)</label>
+                <textarea id="standAlias" placeholder='{"Открыть дверь": {"controller": 123, "command": "lock", "inversion": "yes"}}' style="min-height:80px;"></textarea>
+            </div>
+            <button class="btn btn-success" onclick="saveStand()">💾 Сохранить</button>
+            <button class="btn btn-danger" onclick="closeModal('standModal')">Отмена</button>
+        </div>
+    </div>
+
+    <script>
+        // ========================================================================
+        // 1. КОНСТАНТЫ И ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+        // ========================================================================
+        var WS_API_KEY = '1356_api';
+        var ws = null;
+        var isConnected = false;
+
+        var statusDot = document.getElementById('statusDot');
+        var statusText = document.getElementById('statusText');
+        var statusBar = document.getElementById('statusBar');
+
+        // ========================================================================
+        // 2. WEB SOCKET
+        // ========================================================================
+        function showStatus(msg, type) {
+            type = type || 'info';
+            statusBar.textContent = msg;
+            statusBar.className = 'status-bar ' + type;
+        }
+
+        function connectWebSocket() {
+            var host = window.location.hostname;
+            var wsUrl = 'ws://' + host + ':9090';
+            try {
+                ws = new WebSocket(wsUrl);
+                ws.onopen = function() {
+                    isConnected = true;
+                    statusDot.className = 'status-dot connected';
+                    statusText.textContent = 'Подключено';
+                    showStatus('Соединение установлено', 'success');
+                    refreshAll();
+                };
+                ws.onmessage = function(event) {
+                    try {
+                        var data = JSON.parse(event.data);
+                        console.log('WS получено:', data);
+                        handleIncomingMessage(data);
+                    } catch (e) {
+                        console.error('Ошибка парсинга:', e);
+                    }
+                };
+                ws.onclose = function() {
+                    isConnected = false;
+                    statusDot.className = 'status-dot disconnected';
+                    statusText.textContent = 'Отключено';
+                    showStatus('Соединение потеряно', 'error');
+                    setTimeout(connectWebSocket, 3000);
+                };
+                ws.onerror = function(error) {
+                    console.error('WebSocket ошибка:', error);
+                };
+            } catch (e) {
+                console.error('Ошибка подключения:', e);
+                setTimeout(connectWebSocket, 3000);
+            }
+        }
+
+        function sendApiRequest(api, params) {
+            params = params || {};
+            if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) {
+                console.warn('WebSocket не подключен');
+                return false;
+            }
+            var message = { api_key: WS_API_KEY, api: api };
+            for (var key in params) {
+                if (params.hasOwnProperty(key)) {
+                    message[key] = params[key];
+                }
+            }
+            ws.send(JSON.stringify(message));
+            return true;
+        }
+
+        // ========================================================================
+        // 3. ОБРАБОТКА ВХОДЯЩИХ СООБЩЕНИЙ
+        // ========================================================================
+        function handleIncomingMessage(data) {
+            // Контроллеры
+            if (data.api === 'controllers_list' && data.list) {
+                renderControllers(data.list);
+                showStatus('Контроллеры загружены: ' + Object.keys(data.list).length, 'success');
+                return;
+            }
+
+            // Ethernet-конвертеры
+            if (data.api === 'converters_list' && data.list) {
+                renderConverters(data.list);
+                return;
+            }
+
+            // USB-сканирование
+            if (data.api === 'usb_scan' && data.devices) {
+                renderUsbDevices(data.devices, false);
+                showStatus('Найдено USB-устройств: ' + data.devices.length, 'success');
+                return;
+            }
+
+            // USB-список подключенных
+            if (data.api === 'usb_list' && data.devices) {
+                renderUsbDevices(data.devices, true);
+                return;
+            }
+
+            // USB-подключение
+            if (data.api === 'usb_connect' && data.ok) {
+                showStatus(data.info, 'success');
+                refreshUsbList();
+                return;
+            }
+            if (data.api === 'usb_connect' && !data.ok) {
+                showStatus('Ошибка подключения: ' + data.info, 'error');
+                return;
+            }
+
+            // USB-отключение
+            if (data.api === 'usb_disconnect' && data.ok) {
+                showStatus(data.info, 'success');
+                refreshUsbList();
+                return;
+            }
+            if (data.api === 'usb_disconnect' && !data.ok) {
+                showStatus('Ошибка отключения: ' + data.info, 'error');
+                return;
+            }
+
+            // Стенды
+            if (data.api === 'stands_list' && data.stands) {
+                renderStands(data.stands);
+                return;
+            }
+
+            // Получение одного стенда
+            if (data.api === 'stand_get' && data.stand) {
+                fillStandModal(data.stand);
+                return;
+            }
+
+            // Сохранение стенда
+            if (data.api === 'stand_save' && data.ok) {
+                showStatus(data.info, 'success');
+                sendApiRequest('stands_list', {});
+                closeModal('standModal');
+                return;
+            }
+
+            // Удаление стенда
+            if (data.api === 'stand_delete' && data.ok) {
+                showStatus(data.info, 'success');
+                sendApiRequest('stands_list', {});
+                return;
+            }
+
+            // Ошибки
+            if (data.info === 'wrong api' || data.info === 'wrong api_key') {
+                showStatus('Ошибка API: ' + data.info, 'error');
+                return;
+            }
+        }
+
+        // ========================================================================
+        // 4. РЕНДЕРИНГ
+        // ========================================================================
+        function renderControllers(list) {
+            var tbody = document.getElementById('controllersBody');
+            var keys = Object.keys(list);
+            if (keys.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="empty-message">Нет контроллеров</td></tr>';
+                return;
+            }
+            var html = '';
+            for (var i = 0; i < keys.length; i++) {
+                var key = keys[i];
+                var c = list[key];
+                var statusClass = (c.address !== undefined && c.address !== null) ? 'status-on' : 'status-off';
+                var statusText = (c.address !== undefined && c.address !== null) ? 'Активен' : 'Неактивен';
+                var triggersCount = c.triggers ? c.triggers.length : 0;
+                html += '<tr>';
+                html += '    <td><strong>' + key + '</strong></td>';
+                html += '    <td>' + (c.type || 'N/A') + '</td>';
+                html += '    <td>' + (c.number || 'N/A') + '</td>';
+                html += '    <td>' + (c.address !== undefined ? c.address : 'N/A') + '</td>';
+                html += '    <td><span class="badge badge-warning">' + (c.version || 'unknown') + '</span></td>';
+                html += '    <td class="' + statusClass + '">' + statusText + '</td>';
+                html += '    <td>' + triggersCount + '</td>';
+                html += '</tr>';
+            }
+            tbody.innerHTML = html;
+        }
+
+        function renderConverters(list) {
+            var tbody = document.getElementById('convertersBody');
+            var keys = Object.keys(list);
+            if (keys.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-message">Нет конвертеров</td></tr>';
+                return;
+            }
+            var html = '';
+            for (var i = 0; i < keys.length; i++) {
+                var key = keys[i];
+                var c = list[key];
+                var statusClass = c.connected ? 'status-on' : 'status-off';
+                var statusText = c.connected ? 'Подключен' : 'Отключен';
+                html += '<tr>';
+                html += '    <td>' + key + '</td>';
+                html += '    <td>' + (c.model || 'N/A') + '</td>';
+                html += '    <td>' + (c.number || 'N/A') + '</td>';
+                html += '    <td><span class="badge badge-warning">' + (c.version || 'unknown') + '</span></td>';
+                html += '    <td class="' + statusClass + '">' + statusText + '</td>';
+                html += '    <td>' + (c.addresses || 0) + '</td>';
+                html += '</tr>';
+            }
+            tbody.innerHTML = html;
+        }
+
+        function renderUsbDevices(devices, isConnectedList) {
+            var tbody = document.getElementById('usbBody');
+            var usbStatus = document.getElementById('usbStatus');
+            
+            if (!devices || (Array.isArray(devices) && devices.length === 0) || 
+                (typeof devices === 'object' && Object.keys(devices).length === 0)) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-message">Нет USB-устройств</td></tr>';
+                if (isConnectedList) {
+                    usbStatus.textContent = 'Нет подключенных USB-устройств';
+                    usbStatus.className = 'status-bar info';
+                }
+                return;
+            }
+            
+            var html = '';
+            if (isConnectedList) {
+                // devices - объект { path: { connected, info, index } }
+                for (var path in devices) {
+                    var d = devices[path];
+                    html += renderUsbRow(path, d.info, d.connected, true);
+                }
+                usbStatus.textContent = 'Подключенных USB-устройств: ' + Object.keys(devices).length;
+                usbStatus.className = 'status-bar success';
+            } else {
+                // devices - массив { path, info }
+                for (var i = 0; i < devices.length; i++) {
+                    var d = devices[i];
+                    html += renderUsbRow(d.path, d.info, false, false);
+                }
+                usbStatus.textContent = 'Найдено USB-устройств: ' + devices.length + '. Нажмите "Подключить" для активации.';
+                usbStatus.className = 'status-bar info';
+            }
+            tbody.innerHTML = html;
+        }
+
+        function renderUsbRow(path, info, connected, isConnectedList) {
+            var sn = info.sn || 'N/A';
+            var version = info.version || 'N/A';
+            var model = info.model || 'Z-397 Guard';
+            var statusText = connected ? '✅ Подключен' : (isConnectedList ? '❌ Отключен' : '🔍 Найден');
+            var statusClass = connected ? 'status-on' : (isConnectedList ? 'status-off' : 'status-usb');
+            var actions = '';
+            
+            if (connected) {
+                actions = '<button class="btn btn-danger btn-sm" onclick="disconnectUsb(\'' + path + '\')">Отключить</button>';
+            } else if (isConnectedList) {
+                // В списке подключённых, но неактивен - можно попробовать переподключить
+                var infoStr = JSON.stringify(info).replace(/"/g, '&quot;');
+                actions = '<button class="btn btn-primary btn-sm" onclick="connectUsb(\'' + path + '\', ' + infoStr + ')">Подключить</button>';
+            } else {
+                // Найден, но не подключён
+                var infoStr = JSON.stringify(info).replace(/"/g, '&quot;');
+                actions = '<button class="btn btn-success btn-sm" onclick="connectUsb(\'' + path + '\', ' + infoStr + ')">Подключить</button>';
+            }
+            
+            return '<tr>' +
+                '<td><strong>' + path + '</strong></td>' +
+                '<td>' + sn + '</td>' +
+                '<td><span class="badge badge-warning">' + version + '</span></td>' +
+                '<td>' + model + '</td>' +
+                '<td class="' + statusClass + '">' + statusText + '</td>' +
+                '<td>' + actions + '</td>' +
+                '</tr>';
+        }
+
+        function renderStands(stands) {
+            var tbody = document.getElementById('standsBody');
+            if (!stands || stands.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="empty-message">Нет стендов</td></tr>';
+                return;
+            }
+            var html = '';
+            for (var i = 0; i < stands.length; i++) {
+                var s = stands[i];
+                html += '<tr>';
+                html += '    <td><strong>' + s.name + '</strong></td>';
+                html += '    <td>' + (s.description || '-') + '</td>';
+                html += '    <td>' + (s.groups_count || 0) + '</td>';
+                html += '    <td>';
+                html += '        <button class="btn btn-primary btn-sm" onclick="editStand(\'' + s.path + '\')">✏️</button>';
+                html += '        <button class="btn btn-danger btn-sm" onclick="deleteStand(\'' + s.path + '\')">🗑️</button>';
+                html += '    </td>';
+                html += '</tr>';
+            }
+            tbody.innerHTML = html;
+        }
+
+        // ========================================================================
+        // 5. USB-ФУНКЦИИ
+        // ========================================================================
+        function scanUsb() {
+            if (!isConnected) {
+                showStatus('Нет соединения с сервером', 'error');
+                return;
+            }
+            showStatus('Сканирование USB-устройств...', 'info');
+            sendApiRequest('usb_scan', {});
+        }
+
+        function refreshUsbList() {
+            sendApiRequest('usb_list', {});
+        }
+
+        function connectUsb(path, info) {
+            if (!isConnected) {
+                showStatus('Нет соединения с сервером', 'error');
+                return;
+            }
+            showStatus('Подключение к ' + path + '...', 'info');
+            sendApiRequest('usb_connect', { path: path, info: info });
+        }
+
+        function disconnectUsb(path) {
+            if (!isConnected) {
+                showStatus('Нет соединения с сервером', 'error');
+                return;
+            }
+            if (!confirm('Отключить ' + path + '?')) return;
+            sendApiRequest('usb_disconnect', { path: path });
+        }
+
+        // ========================================================================
+        // 6. ОБНОВЛЕНИЕ
+        // ========================================================================
+        function refreshAll() {
+            sendApiRequest('controllers_list', {});
+            sendApiRequest('converters_list', {});
+            sendApiRequest('usb_list', {});
+            sendApiRequest('stands_list', {});
+        }
+
+        function refreshControllers() {
+            sendApiRequest('controllers_list', {});
+        }
+
+        function refreshConverters() {
+            sendApiRequest('converters_list', {});
+        }
+
+        function refreshStands() {
+            sendApiRequest('stands_list', {});
+        }
+
+        // ========================================================================
+        // 7. СТЕНДЫ
+        // ========================================================================
+        function showModal(id) {
+            document.getElementById(id).classList.add('active');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        function showStandModal() {
+            document.getElementById('standModalTitle').textContent = 'Добавить стенд';
+            document.getElementById('standEditPath').value = '';
+            document.getElementById('standName').value = '';
+            document.getElementById('standDescription').value = '';
+            document.getElementById('standControllers').value = '';
+            document.getElementById('standWiring').value = '';
+            document.getElementById('standAlias').value = '';
+            showModal('standModal');
+        }
+
+        function fillStandModal(stand) {
+            document.getElementById('standModalTitle').textContent = 'Редактировать стенд';
+            document.getElementById('standEditPath').value = stand.name || '';
+            document.getElementById('standName').value = stand.name || '';
+            document.getElementById('standDescription').value = stand.description || '';
+            document.getElementById('standControllers').value = (stand.controllers || []).join(', ');
+            document.getElementById('standWiring').value = stand.wiring ? (stand.wiring.file || '') : '';
+            document.getElementById('standAlias').value = JSON.stringify(stand.alias || {}, null, 2);
+            showModal('standModal');
+        }
+
+        function editStand(path) {
+            sendApiRequest('stand_get', { stand_name: path });
+        }
+
+        function saveStand() {
+            var name = document.getElementById('standName').value.trim();
+            var description = document.getElementById('standDescription').value.trim();
+            var controllersStr = document.getElementById('standControllers').value.trim();
+            var wiring = document.getElementById('standWiring').value.trim();
+            var alias = {};
+            try {
+                var aliasStr = document.getElementById('standAlias').value.trim();
+                if (aliasStr) alias = JSON.parse(aliasStr);
+            } catch (e) {
+                showStatus('Ошибка парсинга алиасов: ' + e.message, 'error');
+                return;
+            }
+
+            if (!name) {
+                showStatus('Введите название стенда', 'error');
+                return;
+            }
+
+            var controllers = controllersStr ? controllersStr.split(',').map(function(s) { return parseInt(s.trim()); }).filter(function(n) { return !isNaN(n); }) : [];
+
+            var standData = {
+                name: name,
+                description: description,
+                controllers: controllers,
+                alias: alias,
+                wiring: wiring ? { file: wiring } : {}
+            };
+
+            sendApiRequest('stand_save', { stand: standData });
+            showStatus('Сохранение...', 'info');
+        }
+
+        function deleteStand(path) {
+            if (!confirm('Удалить стенд "' + path + '"?')) return;
+            sendApiRequest('stand_delete', { stand_name: path });
+        }
+
+        // ========================================================================
+        // 8. ЗАКРЫТИЕ МОДАЛКИ ПО КЛИКУ ВНЕ
+        // ========================================================================
+        document.querySelectorAll('.modal').forEach(function(m) {
+            m.addEventListener('click', function(e) {
+                if (e.target === this) this.classList.remove('active');
+            });
+        });
+
+        // ========================================================================
+        // 9. ЗАПУСК
+        // ========================================================================
+        connectWebSocket();
+
+        // Автоматическое обновление USB-списка каждые 10 секунд
+        setInterval(function() {
+            if (isConnected) {
+                sendApiRequest('usb_list', {});
+            }
+        }, 10000);
+    </script>
+</body>
+</html>

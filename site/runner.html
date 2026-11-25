@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Выполнение тестирования</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0d1117; color: #c9d1d9; min-height: 100vh; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; background: #161b22; border-radius: 16px; padding: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+        header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px; border-bottom: 1px solid #30363d; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+        header h1 { font-size: 24px; font-weight: 600; color: #f0f6fc; }
+        .status { display: flex; align-items: center; gap: 12px; font-size: 14px; color: #8b949e; }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; transition: background 0.3s; }
+        .status-dot.connected { background: #3fb950; box-shadow: 0 0 8px rgba(63,185,80,0.4); }
+        .status-dot.disconnected { background: #f85149; box-shadow: 0 0 8px rgba(248,81,73,0.4); }
+        .status-dot.running { background: #d29922; box-shadow: 0 0 8px rgba(210,153,34,0.4); animation: pulse 1s infinite; }
+        .status-dot.paused { background: #58a6ff; box-shadow: 0 0 8px rgba(88,166,255,0.4); animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .status .current-test-name { color: #58a6ff; font-weight: 500; }
+        
+        .panel { background: #0d1117; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+        .panel h2 { font-size: 16px; font-weight: 500; color: #f0f6fc; margin-bottom: 12px; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        
+        .btn { padding: 6px 14px; border: none; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.25s; }
+        .btn-primary { background: #1f6feb; color: #fff; }
+        .btn-primary:hover { background: #388bfd; }
+        .btn-success { background: #238636; color: #fff; }
+        .btn-success:hover { background: #2ea043; }
+        .btn-danger { background: #da3633; color: #fff; }
+        .btn-danger:hover { background: #f85149; }
+        .btn-warning { background: #d29922; color: #fff; }
+        .btn-warning:hover { background: #e3b341; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+        .btn-outline { background: transparent; border: 1px solid #30363d; color: #c9d1d9; }
+        .btn-outline:hover { background: #30363d; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-info { background: #1f6feb; color: #fff; }
+        .btn-info:hover { background: #388bfd; }
+        .btn-pause { background: #d29922; color: #fff; }
+        .btn-pause:hover { background: #e3b341; }
+        .btn-pause.active { background: #f0883e; }
+        .btn-pause.active:hover { background: #f0a050; }
+        
+        .form-group { margin-bottom: 8px; }
+        .form-group label { display: block; font-size: 13px; font-weight: 500; color: #8b949e; margin-bottom: 2px; }
+        .form-group select { width: 100%; padding: 6px 10px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; color: #f0f6fc; font-size: 13px; }
+        .form-group select:focus { outline: none; border-color: #58a6ff; }
+        .form-group select:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .status-bar { padding: 10px 16px; border-radius: 8px; margin-bottom: 12px; }
+        .status-bar.info { background: #0d1f3c; color: #58a6ff; border: 1px solid #1f6feb; }
+        .status-bar.success { background: #0d1f1a; color: #3fb950; border: 1px solid #238636; }
+        .status-bar.error { background: #1f0d0d; color: #f85149; border: 1px solid #da3633; }
+        .status-bar.running { background: #1f1f0d; color: #d29922; border: 1px solid #d29922; }
+        .status-bar.paused { background: #0d1f3c; color: #58a6ff; border: 1px solid #58a6ff; }
+        
+        .two-columns { display: flex; gap: 20px; }
+        .two-columns .left { flex: 0 0 280px; }
+        .two-columns .center { flex: 1; }
+        
+        .log-container { max-height: 500px; overflow-y: auto; background: #0d1117; border-radius: 8px; border: 1px solid #30363d; font-family: 'Consolas', monospace; font-size: 13px; }
+        .log-table { width: 100%; border-collapse: collapse; }
+        .log-table th { position: sticky; top: 0; background: #161b22; padding: 8px 12px; text-align: left; color: #8b949e; font-weight: 500; font-size: 12px; text-transform: uppercase; border-bottom: 1px solid #30363d; z-index: 1; }
+        .log-table td { padding: 6px 12px; border-bottom: 1px solid #21262d; font-family: 'Consolas', monospace; }
+        .log-table tr:hover td { background: #161b22; }
+        .log-table .time-col { color: #58a6ff; width: 100px; }
+        .log-table .name-col { color: #f0f6fc; }
+        .log-table .data-col { color: #8b949e; }
+        .log-table .error-time { background: rgba(248,81,73,0.15); border-left: 3px solid #f85149; }
+        .log-table .error-name { background: rgba(248,81,73,0.15); border-left: 3px solid #f85149; }
+        .log-table .error-time .time-col { color: #f85149; font-weight: bold; }
+        .log-table .error-name .name-col { color: #f85149; font-weight: bold; }
+        .log-table .ok-row .time-col { color: #3fb950; }
+        .log-table .ok-row .name-col { color: #3fb950; }
+        .log-table .trigger-row .name-col { color: #d29922; }
+        .log-table .command-row .name-col { color: #3fb950; }
+        
+        .result-summary { 
+            display: flex; 
+            gap: 20px; 
+            flex-wrap: wrap; 
+            padding: 12px; 
+            background: #0d1117; 
+            border-radius: 8px; 
+            border: 1px solid #30363d; 
+            margin-top: 12px; 
+            align-items: center;
+        }
+        .result-item { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+        .result-item .badge { padding: 2px 12px; border-radius: 12px; font-weight: 600; }
+        .badge-ok { background: #1a7f37; color: #d4edda; }
+        .badge-no { background: #7a1f1f; color: #f8d7da; }
+        .badge-stopped { background: #7a5d1f; color: #fff3cd; }
+        .result-summary .btn { margin-left: auto; }
+        
+        .current-test-info {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            padding: 8px 12px;
+            background: #0d1f3c;
+            border-radius: 6px;
+            border: 1px solid #1f6feb;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        .current-test-info .label { color: #8b949e; }
+        .current-test-info .value { color: #f0f6fc; font-weight: 500; }
+        
+        .diff-details { margin-top: 8px; padding: 8px 12px; background: #1f0d0d; border-radius: 6px; border-left: 3px solid #f85149; font-size: 13px; color: #f85149; }
+        .diff-details .diff-item { padding: 2px 0; }
+        
+        .empty-message { color: #8b949e; text-align: center; padding: 20px 0; }
+        
+        .run-btn-row { display: flex; gap: 6px; margin-top: 4px; }
+        .run-btn-row .btn { flex: 1; text-align: center; }
+        .stop-row { display: flex; gap: 6px; margin-top: 8px; }
+        .stop-row .btn { flex: 1; text-align: center; }
+        .pause-row { display: flex; gap: 6px; margin-top: 4px; }
+        .pause-row .btn { flex: 1; text-align: center; }
+        
+        @media (max-width: 1024px) {
+            .two-columns { flex-direction: column; }
+            .two-columns .left { flex: 1; }
+        }
+        @media (max-width: 768px) {
+            .two-columns { flex-direction: column; }
+            .two-columns .left { flex: 1; }
+            .log-table .time-col { width: 80px; }
+            .result-summary { flex-direction: column; align-items: stretch; }
+            .result-summary .btn { margin-left: 0; }
+            .run-btn-row { flex-wrap: wrap; }
+            .current-test-info { flex-direction: column; gap: 4px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>▶️ Выполнение тестирования</h1>
+            <div class="status">
+                <span class="status-dot disconnected" id="statusDot"></span>
+                <span id="statusText">Отключено</span>
+                <span id="currentTestName" class="current-test-name"></span>
+            </div>
+        </header>
+
+        <div id="statusBar" class="status-bar info">Загрузка данных...</div>
+
+        <div class="two-columns">
+            <!-- Левая колонка - выбор теста и кнопки -->
+            <div class="left">
+                <div class="panel">
+                    <h2>📋 Выбор теста</h2>
+                    <div class="form-group">
+                        <label>Стенд</label>
+                        <select id="standSelect" onchange="onStandChange()">
+                            <option value="">-- Выберите стенд --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Группа</label>
+                        <select id="groupSelect" onchange="onGroupChange()" disabled>
+                            <option value="">-- Сначала выберите стенд --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Проверка</label>
+                        <select id="checkSelect" onchange="onCheckChange()" disabled>
+                            <option value="">-- Сначала выберите группу --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Тест</label>
+                        <select id="testSelect" disabled>
+                            <option value="">-- Сначала выберите проверку --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h2>▶️ Управление</h2>
+                    <div class="run-btn-row">
+                        <button class="btn btn-success" onclick="runGroup()" id="runGroupBtn" disabled>Выполнить группу</button>
+                        <button class="btn btn-primary" onclick="runCheck()" id="runCheckBtn" disabled>Выполнить проверку</button>
+                        <button class="btn btn-info" onclick="runTest()" id="runTestBtn" disabled>Выполнить тест</button>
+                    </div>
+                    <div class="pause-row">
+                        <button class="btn btn-pause" onclick="togglePause()" id="pauseBtn" disabled>⏸️ Пауза</button>
+                    </div>
+                    <div class="stop-row">
+                        <button class="btn btn-danger" onclick="stopTest()" id="stopTestBtn" disabled>⏹️ Остановить</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Центральная колонка - результат и лог -->
+            <div class="center">
+                <div class="panel">
+                    <div class="flex-between">
+                        <h2>📊 Результат тестирования</h2>
+                        <span id="testNameDisplay" style="color:#8b949e;font-size:14px;"></span>
+                    </div>
+                    <div id="currentTestInfo" class="current-test-info" style="display:none;">
+                        <span><span class="label">Проверка:</span> <span class="value" id="currentCheckName">-</span></span>
+                        <span><span class="label">Тест:</span> <span class="value" id="currentTestNameDisplay">-</span></span>
+                        <span><span class="label">Статус:</span> <span class="value" id="currentStatusDisplay">-</span></span>
+                    </div>
+                    <div id="resultSummary" style="display:none;"></div>
+                    <div id="diffDetails" style="display:none;"></div>
+                </div>
+
+                <div class="panel">
+                    <div class="flex-between">
+                        <h2>📝 Лог событий</h2>
+                        <div>
+                            <span id="logCount" style="color:#8b949e;font-size:13px;">Событий: 0</span>
+                            <button class="btn btn-sm btn-outline" onclick="clearLog()" style="margin-left:10px;padding:2px 10px;">Очистить</button>
+                        </div>
+                    </div>
+                    <div id="logContainer" class="log-container">
+                        <div class="empty-message">Лог пуст. Запустите тест для отображения событий.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========================================================================
+        // 1. КОНСТАНТЫ И ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+        // ========================================================================
+        const WS_API_KEY = '1356_api';
+        let ws = null;
+        let isConnected = false;
+        let isTestRunning = false;
+        let isPaused = false;
+        let pausedOnTestComplete = false;
+        
+        // Данные
+        let standsList = [];
+        let groupsList = {};
+        let checksList = {};
+        let testsList = {};
+        let currentStand = null;
+        let currentGroup = null;
+        let currentCheck = null;
+        let currentTest = null;
+        let testLog = [];
+        let testResult = null;
+        let testName = '';
+        let standartData = null;
+        let currentTestPath = '';
+        let aliasMap = {};
+        let currentRunningCheck = '';
+        let currentRunningTest = '';
+
+        // DOM элементы
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const statusBar = document.getElementById('statusBar');
+        const currentTestName = document.getElementById('currentTestName');
+        const logContainer = document.getElementById('logContainer');
+        const standSelect = document.getElementById('standSelect');
+        const groupSelect = document.getElementById('groupSelect');
+        const checkSelect = document.getElementById('checkSelect');
+        const testSelect = document.getElementById('testSelect');
+        const runGroupBtn = document.getElementById('runGroupBtn');
+        const runCheckBtn = document.getElementById('runCheckBtn');
+        const runTestBtn = document.getElementById('runTestBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const stopTestBtn = document.getElementById('stopTestBtn');
+        const resultSummary = document.getElementById('resultSummary');
+        const diffDetails = document.getElementById('diffDetails');
+        const testNameDisplay = document.getElementById('testNameDisplay');
+        const logCount = document.getElementById('logCount');
+        const currentTestInfo = document.getElementById('currentTestInfo');
+        const currentCheckName = document.getElementById('currentCheckName');
+        const currentTestNameDisplay = document.getElementById('currentTestNameDisplay');
+        const currentStatusDisplay = document.getElementById('currentStatusDisplay');
+
+        // ========================================================================
+        // 2. WEB SOCKET
+        // ========================================================================
+        function showStatus(msg, type = 'info') {
+            statusBar.textContent = msg;
+            statusBar.className = 'status-bar ' + type;
+            if (type === 'paused') {
+                currentStatusDisplay.textContent = '⏸️ Пауза';
+            } else if (type === 'running') {
+                currentStatusDisplay.textContent = '▶️ Выполняется';
+            } else if (type === 'success') {
+                currentStatusDisplay.textContent = '✅ Завершен';
+            } else if (type === 'error') {
+                currentStatusDisplay.textContent = '❌ Ошибка';
+            } else if (type === 'warning') {
+                currentStatusDisplay.textContent = '⚠️ Остановлен';
+            }
+        }
+
+        function connectWebSocket() {
+            const host = window.location.hostname;
+            const wsUrl = `ws://${host}:9090`;
+            try {
+                ws = new WebSocket(wsUrl);
+                ws.onopen = function() {
+                    isConnected = true;
+                    statusDot.className = 'status-dot connected';
+                    statusText.textContent = 'Подключено';
+                    showStatus('Соединение установлено', 'success');
+                    loadStands();
+                };
+                ws.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        console.log('WS получено:', data);
+                        handleIncomingMessage(data);
+                    } catch (e) {
+                        console.error('Ошибка парсинга:', e);
+                    }
+                };
+                ws.onclose = function() {
+                    isConnected = false;
+                    statusDot.className = 'status-dot disconnected';
+                    statusText.textContent = 'Отключено';
+                    showStatus('Соединение потеряно, переподключение...', 'error');
+                    setTimeout(connectWebSocket, 3000);
+                };
+                ws.onerror = function(error) {
+                    console.error('WebSocket ошибка:', error);
+                };
+            } catch (e) {
+                console.error('Ошибка подключения:', e);
+                setTimeout(connectWebSocket, 3000);
+            }
+        }
+
+        function sendApiRequest(api, params = {}) {
+            if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) {
+                console.warn('WebSocket не подключен');
+                return false;
+            }
+            const message = { api_key: WS_API_KEY, api: api, ...params };
+            ws.send(JSON.stringify(message));
+            return true;
+        }
+
+        // ========================================================================
+        // 3. ОБРАБОТКА ВХОДЯЩИХ СООБЩЕНИЙ
+        // ========================================================================
+        function handleIncomingMessage(data) {
+            console.log('=== handleIncomingMessage ===', data.api || 'unknown', data);
+
+            if (data.stands) {
+                standsList = data.stands;
+                renderStandSelect();
+                return;
+            }
+
+            if (data.stand) {
+                currentStand = data.stand;
+                aliasMap = data.stand.alias || {};
+                groupsList = {};
+                if (data.stand.groups) {
+                    for (const g of data.stand.groups) {
+                        groupsList[g.name] = g;
+                    }
+                }
+                renderGroupSelect();
+                return;
+            }
+
+            if (data.group) {
+                currentGroup = data.group;
+                checksList = {};
+                if (data.group.checks_list) {
+                    for (const c of data.group.checks_list) {
+                        checksList[c.name] = c;
+                    }
+                }
+                renderCheckSelect();
+                return;
+            }
+
+            if (data.check) {
+                currentCheck = data.check;
+                testsList = {};
+                if (data.check.tests_list) {
+                    for (const t of data.check.tests_list) {
+                        testsList[t.name] = t;
+                    }
+                }
+                renderTestSelect();
+                return;
+            }
+
+            if (data.test) {
+                currentTest = data.test;
+                testName = currentTest.name || 'Тест';
+                testNameDisplay.textContent = 'Тест: ' + testName;
+                updateCurrentTestName(testName);
+                
+                if (currentTest.standart && currentTest.standart.length > 0) {
+                    standartData = currentTest.standart;
+                } else {
+                    standartData = null;
+                }
+                
+                if (currentTest.result) {
+                    testResult = currentTest.result;
+                    console.log('Загружен результат из файла:', testResult);
+                    renderResult();
+                } else {
+                    resultSummary.style.display = 'none';
+                    diffDetails.style.display = 'none';
+                }
+                
+                if (currentTest.log && currentTest.log.length > 0) {
+                    testLog = currentTest.log;
+                    renderLog();
+                } else {
+                    clearLog();
+                }
+                
+                enableButtons();
+                return;
+            }
+
+            if (data.api === 'test_log') {
+                if (data.log) {
+                    testLog = data.log;
+                    renderLog();
+                }
+                if (data.is_running !== undefined) {
+                    isTestRunning = data.is_running;
+                    updateTestStatus();
+                }
+                if (data.stopped) {
+                    isTestRunning = false;
+                    updateTestStatus();
+                    showStatus('Тест остановлен пользователем', 'warning');
+                    if (data.result) {
+                        testResult = data.result;
+                        renderResult();
+                    }
+                    updateCurrentTestName('');
+                    currentRunningCheck = '';
+                    currentRunningTest = '';
+                    updateCurrentTestInfo();
+                    return;
+                }
+                if (data.completed) {
+                    isTestRunning = false;
+                    // Проверяем, была ли пауза
+                    if (isPaused && pausedOnTestComplete) {
+                        // Остаемся в режиме паузы
+                        updateTestStatus();
+                        showStatus('⏸️ Пауза. Нажмите "Пауза" для продолжения', 'paused');
+                        currentStatusDisplay.textContent = '⏸️ Пауза';
+                        return;
+                    }
+                    updateTestStatus();
+                    if (data.result) {
+                        testResult = data.result;
+                        console.log('Получен результат завершения:', testResult);
+                        renderResult();
+                        if (currentTest) {
+                            currentTest.result = testResult;
+                        }
+                    }
+                    if (data.order_diff || data.time_diff) {
+                        showDiffDetails(data.order_diff, data.time_diff);
+                    }
+                    showStatus('Тест завершен', 'success');
+                    updateCurrentTestName('');
+                    currentRunningCheck = '';
+                    currentRunningTest = '';
+                    updateCurrentTestInfo();
+                }
+                // Обновляем текущий тест в информации
+                if (data.current_check !== undefined) {
+                    currentRunningCheck = data.current_check || '';
+                }
+                if (data.current_test !== undefined) {
+                    currentRunningTest = data.current_test || '';
+                }
+                updateCurrentTestInfo();
+                return;
+            }
+
+            if (data.api === 'test_save_standart') {
+                if (data.ok) {
+                    showStatus('Эталон сохранен', 'success');
+                    loadTestData();
+                } else {
+                    showStatus('Ошибка сохранения эталона: ' + (data.info || 'неизвестная'), 'error');
+                }
+                return;
+            }
+
+            if (data.api === 'test_stop') {
+                if (data.ok) {
+                    showStatus('Тест остановлен', 'warning');
+                    isTestRunning = false;
+                    isPaused = false;
+                    updateTestStatus();
+                    updateCurrentTestName('');
+                    currentRunningCheck = '';
+                    currentRunningTest = '';
+                    updateCurrentTestInfo();
+                } else {
+                    showStatus('Ошибка остановки: ' + (data.info || 'неизвестная'), 'error');
+                }
+                return;
+            }
+
+            if (data.api === 'test_pause') {
+                if (data.ok) {
+                    isPaused = true;
+                    pausedOnTestComplete = true;
+                    showStatus('⏸️ Пауза. Тест завершится, следующий не начнется', 'paused');
+                    updateTestStatus();
+                    currentStatusDisplay.textContent = '⏸️ Пауза';
+                    pauseBtn.textContent = '▶️ Продолжить';
+                    pauseBtn.classList.add('active');
+                } else {
+                    showStatus('Ошибка паузы: ' + (data.info || 'неизвестная'), 'error');
+                }
+                return;
+            }
+
+            if (data.api === 'test_resume') {
+                if (data.ok) {
+                    isPaused = false;
+                    pausedOnTestComplete = false;
+                    showStatus('▶️ Продолжение выполнения', 'running');
+                    updateTestStatus();
+                    currentStatusDisplay.textContent = '▶️ Выполняется';
+                    pauseBtn.textContent = '⏸️ Пауза';
+                    pauseBtn.classList.remove('active');
+                } else {
+                    showStatus('Ошибка продолжения: ' + (data.info || 'неизвестная'), 'error');
+                }
+                return;
+            }
+
+            if (data.info === 'wrong api' || data.info === 'wrong api_key') {
+                showStatus('Ошибка API: ' + data.info, 'error');
+                return;
+            }
+        }
+
+        // ========================================================================
+        // 4. ЗАГРУЗКА ДАННЫХ
+        // ========================================================================
+        function loadStands() {
+            sendApiRequest('stands_list', {});
+        }
+
+        function loadStandData(standName) {
+            if (standName) {
+                sendApiRequest('stand_get', { stand_name: standName });
+            }
+        }
+
+        function loadGroupData(standName, groupName) {
+            if (standName && groupName) {
+                sendApiRequest('group_get', { stand_name: standName, group_name: groupName });
+            }
+        }
+
+        function loadCheckData(standName, groupName, checkName) {
+            if (standName && groupName && checkName) {
+                sendApiRequest('check_get', {
+                    stand_name: standName,
+                    group_name: groupName,
+                    check_name: checkName
+                });
+            }
+        }
+
+        function loadTestData() {
+            const stand = standSelect.value;
+            const group = groupSelect.value;
+            const check = checkSelect.value;
+            const test = testSelect.value;
+            if (stand && group && check && test) {
+                sendApiRequest('test_get_data', {
+                    stand_name: stand,
+                    group_name: group,
+                    check_name: check,
+                    test_name: test
+                });
+                currentTestPath = { stand, group, check, test };
+            }
+        }
+
+        // ========================================================================
+        // 5. РЕНДЕРИНГ ВЫБОРА
+        // ========================================================================
+        function renderStandSelect() {
+            const select = standSelect;
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">-- Выберите стенд --</option>';
+            for (const s of standsList) {
+                const option = document.createElement('option');
+                option.value = s.path;
+                option.textContent = s.name;
+                if (s.path === currentValue) option.selected = true;
+                select.appendChild(option);
+            }
+            select.disabled = false;
+        }
+
+        function renderGroupSelect() {
+            const select = groupSelect;
+            select.innerHTML = '<option value="">-- Выберите группу --</option>';
+            if (currentStand && currentStand.groups) {
+                for (const g of currentStand.groups) {
+                    const option = document.createElement('option');
+                    option.value = g.path;
+                    option.textContent = g.name;
+                    select.appendChild(option);
+                }
+            }
+            select.disabled = false;
+            checkSelect.innerHTML = '<option value="">-- Сначала выберите группу --</option>';
+            checkSelect.disabled = true;
+            testSelect.innerHTML = '<option value="">-- Сначала выберите проверку --</option>';
+            testSelect.disabled = true;
+            enableButtons();
+        }
+
+        function renderCheckSelect() {
+            const select = checkSelect;
+            select.innerHTML = '<option value="">-- Выберите проверку --</option>';
+            if (currentGroup && currentGroup.checks_list) {
+                for (const c of currentGroup.checks_list) {
+                    const option = document.createElement('option');
+                    option.value = c.path;
+                    option.textContent = c.name;
+                    select.appendChild(option);
+                }
+            }
+            select.disabled = false;
+            testSelect.innerHTML = '<option value="">-- Сначала выберите проверку --</option>';
+            testSelect.disabled = true;
+            enableButtons();
+        }
+
+        function renderTestSelect() {
+            const select = testSelect;
+            select.innerHTML = '<option value="">-- Выберите тест --</option>';
+            if (currentCheck && currentCheck.tests_list) {
+                for (const t of currentCheck.tests_list) {
+                    const option = document.createElement('option');
+                    option.value = t.name;
+                    option.textContent = t.name;
+                    select.appendChild(option);
+                }
+            }
+            select.disabled = false;
+            enableButtons();
+            if (select.value) {
+                loadTestData();
+            }
+        }
+
+        function updateCurrentTestName(name) {
+            if (name) {
+                currentTestName.textContent = '🔹 ' + name;
+            } else {
+                currentTestName.textContent = '';
+            }
+        }
+
+        function updateCurrentTestInfo() {
+            if (currentRunningCheck || currentRunningTest) {
+                currentTestInfo.style.display = 'flex';
+                currentCheckName.textContent = currentRunningCheck || '-';
+                currentTestNameDisplay.textContent = currentRunningTest || '-';
+            } else {
+                currentTestInfo.style.display = 'none';
+            }
+        }
+
+        // ========================================================================
+        // 6. ОБРАБОТКА ИЗМЕНЕНИЙ В ВЫБОРЕ
+        // ========================================================================
+        function onStandChange() {
+            const stand = standSelect.value;
+            if (stand) {
+                loadStandData(stand);
+                clearLog();
+                clearResult();
+                updateCurrentTestName('');
+                currentRunningCheck = '';
+                currentRunningTest = '';
+                updateCurrentTestInfo();
+            } else {
+                groupSelect.innerHTML = '<option value="">-- Сначала выберите стенд --</option>';
+                groupSelect.disabled = true;
+                checkSelect.innerHTML = '<option value="">-- Сначала выберите группу --</option>';
+                checkSelect.disabled = true;
+                testSelect.innerHTML = '<option value="">-- Сначала выберите проверку --</option>';
+                testSelect.disabled = true;
+                enableButtons();
+                clearLog();
+                clearResult();
+                updateCurrentTestName('');
+                currentRunningCheck = '';
+                currentRunningTest = '';
+                updateCurrentTestInfo();
+            }
+        }
+
+        function onGroupChange() {
+            const stand = standSelect.value;
+            const group = groupSelect.value;
+            if (stand && group) {
+                loadGroupData(stand, group);
+                clearLog();
+                clearResult();
+                updateCurrentTestName('');
+                currentRunningCheck = '';
+                currentRunningTest = '';
+                updateCurrentTestInfo();
+            } else {
+                checkSelect.innerHTML = '<option value="">-- Сначала выберите группу --</option>';
+                checkSelect.disabled = true;
+                testSelect.innerHTML = '<option value="">-- Сначала выберите проверку --</option>';
+                testSelect.disabled = true;
+                enableButtons();
+                clearLog();
+                clearResult();
+                updateCurrentTestName('');
+                currentRunningCheck = '';
+                currentRunningTest = '';
+                updateCurrentTestInfo();
+            }
+        }
+
+        function onCheckChange() {
+            const stand = standSelect.value;
+            const group = groupSelect.value;
+            const check = checkSelect.value;
+            if (stand && group && check) {
+                loadCheckData(stand, group, check);
+                clearLog();
+                clearResult();
+                updateCurrentTestName('');
+                currentRunningCheck = '';
+                currentRunningTest = '';
+                updateCurrentTestInfo();
+            } else {
+                testSelect.innerHTML = '<option value="">-- Сначала выберите проверку --</option>';
+                testSelect.disabled = true;
+                enableButtons();
+                clearLog();
+                clearResult();
+                updateCurrentTestName('');
+                currentRunningCheck = '';
+                currentRunningTest = '';
+                updateCurrentTestInfo();
+            }
+        }
+
+        function onTestChange() {
+            const test = testSelect.value;
+            if (test) {
+                loadTestData();
+            } else {
+                clearLog();
+                clearResult();
+                enableButtons();
+                updateCurrentTestName('');
+                currentRunningCheck = '';
+                currentRunningTest = '';
+                updateCurrentTestInfo();
+            }
+        }
+
+        // ========================================================================
+        // 7. УПРАВЛЕНИЕ ТЕСТОМ
+        // ========================================================================
+        function runGroup() {
+            const stand = standSelect.value;
+            const group = groupSelect.value;
+            if (!stand || !group) {
+                showStatus('Выберите стенд и группу', 'error');
+                return;
+            }
+            resetPauseState();
+            runWithMode('group');
+        }
+
+        function runCheck() {
+            const stand = standSelect.value;
+            const group = groupSelect.value;
+            const check = checkSelect.value;
+            if (!stand || !group || !check) {
+                showStatus('Выберите стенд, группу и проверку', 'error');
+                return;
+            }
+            resetPauseState();
+            runWithMode('check', check);
+        }
+
+        function runTest() {
+            const stand = standSelect.value;
+            const group = groupSelect.value;
+            const check = checkSelect.value;
+            const test = testSelect.value;
+            if (!stand || !group || !check || !test) {
+                showStatus('Выберите стенд, группу, проверку и тест', 'error');
+                return;
+            }
+            resetPauseState();
+            updateCurrentTestName(test);
+            currentRunningCheck = check;
+            currentRunningTest = test;
+            updateCurrentTestInfo();
+            runWithMode('test', check, test);
+        }
+
+        function runWithMode(mode, checkName, testName) {
+            const stand = standSelect.value;
+            const group = groupSelect.value;
+
+            testLog = [];
+            testResult = null;
+            renderLog();
+            clearResult();
+            isPaused = false;
+            pausedOnTestComplete = false;
+            pauseBtn.textContent = '⏸️ Пауза';
+            pauseBtn.classList.remove('active');
+
+            const params = {
+                stand_name: stand,
+                group_name: group,
+                mode: mode
+            };
+            if (checkName) params.check_name = checkName;
+            if (testName) params.test_name = testName;
+
+            sendApiRequest('test_run_new', params);
+            showStatus('Запуск теста...', 'running');
+            isTestRunning = true;
+            updateTestStatus();
+        }
+
+        function resetPauseState() {
+            isPaused = false;
+            pausedOnTestComplete = false;
+            pauseBtn.textContent = '⏸️ Пауза';
+            pauseBtn.classList.remove('active');
+        }
+
+        function togglePause() {
+            if (!isTestRunning && !isPaused) {
+                showStatus('Нет выполняемого теста', 'warning');
+                return;
+            }
+
+            if (isPaused) {
+                // Снимаем паузу - продолжаем
+                sendApiRequest('test_resume', {});
+                showStatus('▶️ Продолжение выполнения...', 'running');
+                isPaused = false;
+                pausedOnTestComplete = false;
+                pauseBtn.textContent = '⏸️ Пауза';
+                pauseBtn.classList.remove('active');
+                updateTestStatus();
+                currentStatusDisplay.textContent = '▶️ Выполняется';
+            } else {
+                // Ставим паузу - после текущего теста остановимся
+                sendApiRequest('test_pause', {});
+                showStatus('⏸️ Пауза. Тест завершится, следующий не начнется', 'paused');
+                isPaused = true;
+                pausedOnTestComplete = true;
+                pauseBtn.textContent = '▶️ Продолжить';
+                pauseBtn.classList.add('active');
+                updateTestStatus();
+                currentStatusDisplay.textContent = '⏸️ Пауза';
+            }
+        }
+
+        function stopTest() {
+            if (!isTestRunning) {
+                showStatus('Нет выполняемого теста', 'warning');
+                return;
+            }
+            resetPauseState();
+            sendApiRequest('test_stop', {});
+            showStatus('Остановка теста...', 'warning');
+            currentStatusDisplay.textContent = '⏹️ Остановка...';
+        }
+
+        function saveStandart() {
+            const stand = standSelect.value;
+            const group = groupSelect.value;
+            const check = checkSelect.value;
+            const test = testSelect.value;
+
+            if (!stand || !group || !check || !test) {
+                showStatus('Выберите стенд, группу, проверку и тест', 'error');
+                return;
+            }
+
+            if (!testLog || testLog.length === 0) {
+                showStatus('Нет данных для сохранения эталона. Запустите тест.', 'error');
+                return;
+            }
+
+            if (confirm('Сохранить текущий лог как эталон для теста "' + test + '"?')) {
+                sendApiRequest('test_save_standart', {
+                    stand_name: stand,
+                    group_name: group,
+                    check_name: check,
+                    test_name: test
+                });
+                showStatus('Сохранение эталона...', 'info');
+            }
+        }
+
+        // ========================================================================
+        // 8. ОТОБРАЖЕНИЕ ЛОГА
+        // ========================================================================
+        function renderLog() {
+            if (!testLog || testLog.length === 0) {
+                logContainer.innerHTML = '<div class="empty-message">Лог пуст. Запустите тест для отображения событий.</div>';
+                logCount.textContent = 'Событий: 0';
+                return;
+            }
+
+            let html = '<table class="log-table"><thead><tr><th>Время (мс)</th><th>Событие</th><th>Данные</th></tr></thead><tbody>';
+            
+            const hasStandart = standartData && standartData.length > 0;
+            const difference = currentTest ? (currentTest.difference || 100) : 100;
+            
+            for (let i = 0; i < testLog.length; i++) {
+                const entry = testLog[i];
+                const time = entry[0] || 0;
+                let name = typeof entry[1] === 'string' ? entry[1] : JSON.stringify(entry[1]);
+                let data = entry[2] ? JSON.stringify(entry[2]) : '';
+                
+                let rowClass = '';
+                let nameClass = '';
+                let timeClass = '';
+                
+                if (hasStandart && i < standartData.length) {
+                    const stdEntry = standartData[i];
+                    const stdTime = stdEntry[0] || 0;
+                    const stdName = typeof stdEntry[1] === 'string' ? stdEntry[1] : JSON.stringify(stdEntry[1]);
+                    
+                    const timeDiff = Math.abs(time - stdTime);
+                    if (timeDiff > difference) {
+                        rowClass = 'error-time';
+                        timeClass = 'error-time';
+                    }
+                    
+                    if (name !== stdName) {
+                        rowClass = rowClass ? rowClass + ' error-name' : 'error-name';
+                        nameClass = 'error-name';
+                    }
+                }
+                
+                if (name === 'test_start' || name === 'test_end') {
+                    // служебные
+                } else if (data && data.includes('action')) {
+                    rowClass = rowClass ? rowClass + ' command-row' : 'command-row';
+                } else if (data && data.includes('trigger_info')) {
+                    rowClass = rowClass ? rowClass + ' trigger-row' : 'trigger-row';
+                }
+                
+                html += `<tr class="${rowClass}">
+                    <td class="time-col ${timeClass}">${time}</td>
+                    <td class="name-col ${nameClass}">${name}</td>
+                    <td class="data-col">${data}</td>
+                </tr>`;
+            }
+            
+            html += '</tbody></table>';
+            logContainer.innerHTML = html;
+            logContainer.scrollTop = logContainer.scrollHeight;
+            logCount.textContent = 'Событий: ' + testLog.length;
+        }
+
+        function clearLog() {
+            testLog = [];
+            logContainer.innerHTML = '<div class="empty-message">Лог пуст. Запустите тест для отображения событий.</div>';
+            logCount.textContent = 'Событий: 0';
+        }
+
+        // ========================================================================
+        // 9. ОТОБРАЖЕНИЕ РЕЗУЛЬТАТА
+        // ========================================================================
+        function renderResult() {
+            console.log('renderResult вызван, testResult:', testResult);
+            if (!testResult) {
+                resultSummary.style.display = 'none';
+                diffDetails.style.display = 'none';
+                return;
+            }
+
+            resultSummary.style.display = 'block';
+            const orderOk = testResult.order === 'ok';
+            const timeOk = testResult.time === 'ok';
+            const isStopped = testResult.order === 'stopped';
+            
+            let html = '<div class="result-summary">';
+            if (isStopped) {
+                html += `<div class="result-item">Статус: <span class="badge badge-stopped">⏹️ Остановлен</span></div>`;
+            } else {
+                html += `<div class="result-item">Порядок событий: <span class="badge ${orderOk ? 'badge-ok' : 'badge-no'}">${orderOk ? '✅ OK' : '❌ NO OK'}</span></div>`;
+                html += `<div class="result-item">Время событий: <span class="badge ${timeOk ? 'badge-ok' : 'badge-no'}">${timeOk ? '✅ OK' : '❌ NO OK'}</span></div>`;
+            }
+            html += `<button class="btn btn-warning btn-sm" onclick="saveStandart()" id="saveStandartBtn" disabled>💾 Сохранить эталон</button>`;
+            html += '</div>';
+            resultSummary.innerHTML = html;
+            
+            // Обновляем состояние кнопки сохранения эталона
+            const saveBtn = resultSummary.querySelector('#saveStandartBtn');
+            if (saveBtn) {
+                const hasTest = !!(standSelect.value && groupSelect.value && checkSelect.value && testSelect.value);
+                saveBtn.disabled = !hasTest || isTestRunning || isPaused || (testLog && testLog.length === 0);
+            }
+            
+            if (testResult.order_diff && testResult.order_diff.length > 0 && !isStopped) {
+                showDiffDetails(testResult.order_diff, testResult.time_diff || []);
+            } else {
+                diffDetails.style.display = 'none';
+            }
+        }
+
+        function showDiffDetails(orderDiff, timeDiff) {
+            if (!orderDiff && !timeDiff) {
+                diffDetails.style.display = 'none';
+                return;
+            }
+            diffDetails.style.display = 'block';
+            let html = '<div class="diff-details">';
+            if (orderDiff && orderDiff.length > 0) {
+                html += '<div><strong>Ошибки порядка:</strong></div>';
+                for (const d of orderDiff) {
+                    html += `<div class="diff-item">• ${d}</div>`;
+                }
+            }
+            if (timeDiff && timeDiff.length > 0) {
+                html += '<div style="margin-top:6px;"><strong>Ошибки времени:</strong></div>';
+                for (const d of timeDiff) {
+                    html += `<div class="diff-item">• ${d}</div>`;
+                }
+            }
+            html += '</div>';
+            diffDetails.innerHTML = html;
+        }
+
+        function clearResult() {
+            resultSummary.style.display = 'none';
+            diffDetails.style.display = 'none';
+            testResult = null;
+        }
+
+        // ========================================================================
+        // 10. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+        // ========================================================================
+        function updateTestStatus() {
+            if (isTestRunning) {
+                if (isPaused) {
+                    statusDot.className = 'status-dot paused';
+                    statusText.textContent = 'Пауза';
+                    runGroupBtn.disabled = true;
+                    runCheckBtn.disabled = true;
+                    runTestBtn.disabled = true;
+                    stopTestBtn.disabled = false;
+                    pauseBtn.disabled = false;
+                    pauseBtn.textContent = '▶️ Продолжить';
+                    pauseBtn.classList.add('active');
+                } else {
+                    statusDot.className = 'status-dot running';
+                    statusText.textContent = 'Тест выполняется';
+                    runGroupBtn.disabled = true;
+                    runCheckBtn.disabled = true;
+                    runTestBtn.disabled = true;
+                    stopTestBtn.disabled = false;
+                    pauseBtn.disabled = false;
+                    pauseBtn.textContent = '⏸️ Пауза';
+                    pauseBtn.classList.remove('active');
+                }
+                // Отключаем кнопку сохранения в результатах
+                const saveBtn = document.querySelector('#saveStandartBtn');
+                if (saveBtn) saveBtn.disabled = true;
+            } else {
+                statusDot.className = 'status-dot connected';
+                statusText.textContent = 'Подключено';
+                enableButtons();
+                stopTestBtn.disabled = true;
+                pauseBtn.disabled = true;
+                pauseBtn.textContent = '⏸️ Пауза';
+                pauseBtn.classList.remove('active');
+                const saveBtn = document.querySelector('#saveStandartBtn');
+                if (saveBtn) {
+                    const hasTest = !!(standSelect.value && groupSelect.value && checkSelect.value && testSelect.value);
+                    saveBtn.disabled = !hasTest || (testLog && testLog.length === 0);
+                }
+            }
+        }
+
+        function enableButtons() {
+            const stand = standSelect.value;
+            const group = groupSelect.value;
+            const check = checkSelect.value;
+            const test = testSelect.value;
+            
+            const hasGroup = !!(stand && group);
+            const hasCheck = !!(stand && group && check);
+            const hasTest = !!(stand && group && check && test);
+            
+            runGroupBtn.disabled = !hasGroup || isTestRunning || isPaused;
+            runCheckBtn.disabled = !hasCheck || isTestRunning || isPaused;
+            runTestBtn.disabled = !hasTest || isTestRunning || isPaused;
+            stopTestBtn.disabled = !isTestRunning;
+            pauseBtn.disabled = !isTestRunning || isPaused;
+            
+            // Обновляем кнопку сохранения эталона в результатах
+            const saveBtn = document.querySelector('#saveStandartBtn');
+            if (saveBtn) {
+                saveBtn.disabled = !hasTest || isTestRunning || isPaused || (testLog && testLog.length === 0);
+            }
+        }
+
+        // ========================================================================
+        // 11. ЗАПУСК
+        // ========================================================================
+        testSelect.addEventListener('change', onTestChange);
+        connectWebSocket();
+    </script>
+</body>
+</html>
